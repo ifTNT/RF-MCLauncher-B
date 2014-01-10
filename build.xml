@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="RF-MCLauncher-B" default="build">
+  <property name="ProjectName" value="RF-MCLauncher-B" />
+  <property name="Version" value="v2.0a" />
+  <property name="SrcDir" value="src" />
+  <property name="BinDir" value="bin" />
+  <property name="JarFile" value="./${ProjectName}_${Version}.jar" />
+
+  <target name="clean" description="清除已編譯的檔案">
+    <echo message="Cleaning Project..." />
+    <deltree dir="${BinDir}" />
+    <!--<delete file="${JarFile}" />-->
+    <mkdir dir="${BinDir}" />
+    <echo message="Clean success!" />
+  </target>
+
+  <target name="build" depends="clean" description="編譯${ProjectName}">
+    <echo message="Compiling ${ProjectName}_${Version}" />
+    <copy todir="${BinDir}"><fileset dir="${SrcDir}" excludes="**/*.java" /></copy>
+    <javac destdir="${BinDir}" optimize="yes" encoding="UTF-8" srcdir="${SrcDir}">
+      <classpath>
+        <fileset dir="libs" includes="*.jar" />
+      </classpath>
+    </javac>
+    <echo message="Compile success!" />
+  </target>
+
+  <target name="jar" description="包成Jar檔">
+    <replace file="${SrcDir}/org/rf/john/mclauncher/RFInfo.java" token="RunType.Debug" value="RunType.JAR" />
+    <antcall target="build" />
+    <jar destfile="${JarFile}" basedir=".">
+      <fileset dir="${BinDir}" />
+      <include name="images/icon.png" />
+      <include name="images/OakBG.png" />
+      <include name="org/" />
+      <manifest>
+        <attribute name="Manifest-Version" value="1.0" />
+        <attribute name="Main-Class" value="org.rf.john.mclauncher.Main" />
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="debug" description="執行程式,進行除錯">
+    <replace file="${SrcDir}/org/rf/john/mclauncher/RFInfo.java" token="RunType.JAR" value="RunType.Debug" />
+    <antcall target="build" />
+    <java dir="." classname="org.rf.john.mclauncher.Main" fork="true">
+      <classpath>
+        <pathelement path="." />
+        <pathelement path="${BinDir}"/>
+      </classpath>
+    </java>
+  </target>
+</project>

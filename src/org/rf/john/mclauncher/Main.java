@@ -5,6 +5,7 @@ package org.rf.john.mclauncher;
 Apache commons-codec1.8.jar
 JSON.org json.jar(自行編譯)
 Apache apache-ant-1.9.2/ant.jar
+tukaani.org xz-java-1.4.zip
 
 -----------END 引用的檔案-------------*/
 
@@ -52,6 +53,8 @@ import javax.swing.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -71,6 +74,9 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map.Entry;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Pack200;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.tools.zip.ZipEntry;
@@ -78,6 +84,7 @@ import org.apache.tools.zip.ZipFile;
 import org.json.JSONObject;
 import org.rf.john.mclauncher.langs.*;
 
+import org.tukaani.xz.XZInputStream;
 
 /**
  * 
@@ -706,24 +713,28 @@ class DownloadThread extends Thread{
 		RFInfo.Launcher.makeDir(LibrariesDir+LibrariesPath);
 		System.out.println("Starting download: "+LibrariesDir+FileURL);
 		try{
-			URL loginurl = new URL(downloadURL);
-			URLConnection urlc = loginurl.openConnection();
+			URL DownloadUrlObj = new URL(downloadURL);
+			URLConnection urlc = DownloadUrlObj.openConnection();
 			urlc.setConnectTimeout(5000);
 			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
 			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
 			ConnectObj.connect();
 			BufferedInputStream DownloadStream = new BufferedInputStream(ConnectObj.getInputStream());
-			new File(LibrariesDir+FileURL).createNewFile();
-			BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(LibrariesDir+FileURL));
-			byte[] data = new byte[1024]; //緩衝區大小1024byte
-			int len = DownloadStream.read(data); //讀檔
-			while(len > 0) {
-				WriteStream.write(data,0,len);
-				len = DownloadStream.read(data);
+			new File(LibrariesDir+FileURL.replace("-universal","")).createNewFile();
+			if(FileURL.matches(".*\\.pack\\.xz")){
+				unpackLibrary(new File(LibrariesDir+FileURL),readFully(DownloadStream));
+			}else{
+				BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(LibrariesDir+FileURL.replace("-universal","")));
+				byte[] data = new byte[1024]; //緩衝區大小1024byte
+				int len = DownloadStream.read(data); //讀檔
+				while(len > 0) {
+					WriteStream.write(data,0,len);
+					len = DownloadStream.read(data);
+				}
+				WriteStream.flush();
+				DownloadStream.close();
+				WriteStream.close();
 			}
-			WriteStream.flush();
-			DownloadStream.close();
-			WriteStream.close();
 			System.out.println("Finish download:"+LibrariesDir+FileURL);
 		}catch(IOException e){
 			System.out.println("--*Download Error("+FileURL+")*--");
@@ -732,6 +743,49 @@ class DownloadThread extends Thread{
 		}
 		this.JobTable.FinishJob();
 	}
+	//------START 從ForgeInstaller複製過來的方法------
+	public static void unpackLibrary(File output, byte[] data) throws IOException {
+		byte[] decompressed = readFully(new XZInputStream(new ByteArrayInputStream(data)));
+	
+		String end = new String(decompressed, decompressed.length - 4, 4);
+		if (!end.equals("SIGN")){
+			System.out.println("Unpacking failed, signature missing " + end);
+			return;
+		}
+	
+		int x = decompressed.length;
+		int len = decompressed[(x - 8)] & 0xFF | (decompressed[(x - 7)] & 0xFF) << 8 | (decompressed[(x - 6)] & 0xFF) << 16 | (decompressed[(x - 5)] & 0xFF) << 24;
+	
+		byte[] checksums = Arrays.copyOfRange(decompressed, decompressed.length - len - 8, decompressed.length - 8);
+	
+		FileOutputStream jarBytes;
+			
+		jarBytes = new FileOutputStream(output);
+		JarOutputStream jos = new JarOutputStream(jarBytes);
+	
+		Pack200.newUnpacker().unpack(new ByteArrayInputStream(decompressed), jos);
+	
+		jos.putNextEntry(new JarEntry("checksums.sha1"));
+		jos.write(checksums);
+		jos.closeEntry();
+	
+		jos.close();
+		jarBytes.close();
+	}
+	public static byte[] readFully(InputStream stream) throws IOException{
+		byte[] data = new byte[4096];
+		ByteArrayOutputStream entryBuffer = new ByteArrayOutputStream();
+		int len;
+		do {
+			len = stream.read(data);
+			if (len > 0){
+				entryBuffer.write(data, 0, len);
+			}
+		}while (len != -1);
+
+		return entryBuffer.toByteArray();
+	}
+	//------END 從ForgeInstaller複製過來的方法------
 }
 /**
  * 多執行續解壓縮實作類別

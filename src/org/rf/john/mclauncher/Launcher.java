@@ -273,11 +273,11 @@ public class Launcher{
 			
 			if(NeedDownload){
 				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("DeletingLib"));
-				System.out.println("Deleting libaries...");
-				System.out.println(deleteDir(new File(LibrariesDir))?"Delete success!":"Delete unsuccess!");
+				//RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("DeletingLib"));
+				//System.out.println("Deleting libaries...");
+				//System.out.println(deleteDir(new File(LibrariesDir))?"Delete success!":"Delete unsuccess!");
 				new File(LibrariesDir).mkdir();
-				System.out.println("Deleted libraries!");
+				//System.out.println("Deleted libraries!");
 				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
 				System.out.println("Downloading libraries");
 				RFInfo.Theme.MainProgressBar.setMaximum(Libraries.length());
@@ -294,7 +294,10 @@ public class Launcher{
 						String FileURL="";
 						//String downloadURL="";
 						FileURL = (LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1]);
-						FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar";
+						FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
+						FileURL += (temp[temp.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
+						FileURL += (temp[temp.length-2].matches("scala-[a-zA-z0-9.]+")?".pack.xz":"");
+						//http://repo1.maven.org/maven2/org/scala-lang/scala-library/2.10.2/scala-library-2.10.2.jar
 						System.out.println("-- "+FileURL);
 						DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
 						//Key=DownloadURL(FileURL),Value=DownloadHost
@@ -389,7 +392,7 @@ public class Launcher{
             }
             while((line = p_in.readLine()) != null){
             	System.out.println("【Minecraft Console】> "+line);
-            	if(line.indexOf("Game crashed! Crash report saved to:")>=0){
+            	if(line.matches("^\\W{3,}Game crashed! Crash report saved to: \\W{3,}.*")){
             		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+RFInfo.SelectedLang.getString("GameError")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
             		break;
             	}
