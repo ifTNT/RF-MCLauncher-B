@@ -9,7 +9,7 @@ import org.rf.john.mclauncher.Themes.Theme;
 
 public class RFInfo{
 	public static String Version="v2.0a"; //RF-MCLauncher-B的版本
-	public static RunType RunMode=RunType.Debug; //運作模式(Debug/JAR)
+	public static RunType RunMode=RunType.JAR; //運作模式(Debug/JAR)
 	
 	public static HashSet<String> Arguments=new HashSet<>(); //啟動參數
 	public static boolean TestArguments(String arg){ //檢查是否有該參數
@@ -21,6 +21,7 @@ public class RFInfo{
 	public static Languages SelectedLang; //已選的語系
 	public static Launcher Launcher;  //啟動器物件
 	public static JSONObject RFMCLB_InfoJSON;
+	public static boolean Busy;
 	
 	public static String getOS(){
 		if(System.getProperty("os.name").toLowerCase().indexOf("win")>=0){

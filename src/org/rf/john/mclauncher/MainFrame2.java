@@ -3,6 +3,8 @@ package org.rf.john.mclauncher;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -55,7 +57,7 @@ public class MainFrame2 extends JFrame {
 		}
 		//---------------------------
 		this.setVisible(true);
-		this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+		this.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		this.setResizable(false);
 		ImageIcon icon;
 		if(RFInfo.RunMode.equals(RunType.Debug)){
@@ -97,6 +99,21 @@ public class MainFrame2 extends JFrame {
 		RFInfo.Theme.ProfileSelectBox.setEnabled(Login.canConnect());
 		RFInfo.Theme.LoginBtn.setText(RFInfo.Theme.TextStyles.get("LoginBtn").replace("${TEXT}",(Login.canConnect()?RFInfo.SelectedLang.getString("LoginBtn"):RFInfo.SelectedLang.getString("LaunchOffline"))));
 		RFInfo.Theme.LoginBtn.setEnabled(true); //解凍
+		
+		this.addWindowListener(new WindowAdapter(){
+			@Override
+		    public void windowClosing(WindowEvent e){
+		        if(RFInfo.Busy){
+		        	if(new JOptionPane().showConfirmDialog(null,"<html><span style=\"color: RED;\">"+RFInfo.SelectedLang.getString("CloseWindowOnBusy")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.YES_NO_OPTION,JOptionPane.WARNING_MESSAGE)==JOptionPane.YES_OPTION){
+		        		e.getWindow().dispose();
+		        		System.exit(0);
+		        	}
+		        }else{
+		        	e.getWindow().dispose();
+	        		System.exit(0);
+		        }
+		    }
+		});
 	}
 	
 	/**

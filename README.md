@@ -38,6 +38,23 @@ RF-MCLauncher-B
     +可自動判斷適合系統的語系
     +允許使用Apache Ant進行開發
 
+#####Download&Assets
+    *將scala的程式庫改為.pack.xz下載 以加快速度
+    +引用tukaani的xz java-1.4程式庫
+    *改進下載的執行緒分配
+    *如果欲下載的檔案存在 則不下載
+    +支援Assets下載
+    -不再將程式庫刪除,重下載 只下載沒有的程式庫
+    *將ant的jar壓縮等級變成9
+    +將ant debug的錯誤導向到launch.err
+    *更改Windows的NativesTail
+    -清理部份無用的原始碼
+    *改用ant作為jar佈署工具(之前是用Eclipsc)
+    +下載檔案中關閉視窗時 會詢問
+
+##參數
+- --NoDelNatives : 不要刪除Natives資料夾(除錯用)
+- --NoUpdate : 不檢查更新(暫時棄用)
 
 ##未來
 - 自訂義佈景(外觀) (製作中...)

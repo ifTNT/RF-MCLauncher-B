@@ -28,7 +28,7 @@
   <target name="jar" description="包成Jar檔">
     <replace file="${SrcDir}/org/rf/john/mclauncher/RFInfo.java" token="RunType.Debug" value="RunType.JAR" />
     <antcall target="build" />
-    <jar destfile="${JarFile}" basedir=".">
+    <jar destfile="${JarFile}" basedir="." level="9">
       <fileset dir="${BinDir}" />
       <include name="images/icon.png" />
       <include name="images/OakBG.png" />
@@ -43,7 +43,7 @@
   <target name="debug" description="執行程式,進行除錯">
     <replace file="${SrcDir}/org/rf/john/mclauncher/RFInfo.java" token="RunType.JAR" value="RunType.Debug" />
     <antcall target="build" />
-    <java dir="." classname="org.rf.john.mclauncher.Main" fork="true">
+    <java dir="." classname="org.rf.john.mclauncher.Main" fork="true" error="launch.err">
       <classpath>
         <pathelement path="." />
         <pathelement path="${BinDir}"/>

@@ -1,12 +1,21 @@
 package org.rf.john.mclauncher;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import javax.swing.JOptionPane;
 
@@ -22,6 +31,8 @@ public class Launcher{
 	public String LastVersion="";
 	protected static String SplitChar;
 	protected String LibrariesBaseDownloadURL="https://libraries.minecraft.net/";
+	protected String AssetsIndexBaseDownloadURL="https://s3.amazonaws.com/Minecraft.Download/indexes/";
+	protected String AssetsBaseDownloadURL="http://resources.download.minecraft.net/";
 	
 	public int PrintLauncherVersion(){
 		//System.out.println(this);
@@ -227,7 +238,7 @@ public class Launcher{
 		String LaunchArgs="";
 		String Version="";
 		String AssetsIndex="";
-		boolean NeedDownload=false;
+		//boolean NeedDownload=false;
 		String LibrariesDir=minecraftDir+"libraries"+SplitChar;
 		System.out.println("\n--Launching Game...");
 		LaunchCmd += this.JVMPath;
@@ -251,7 +262,7 @@ public class Launcher{
 			GameDir = JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"gameDir")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("gameDir"):minecraftDir;
 			String LastVersionID = JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"lastVersionId")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("lastVersionId"):this.LastVersion;
 			NativesDir = (minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+"-natives-" + System.nanoTime());
-			NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
+			//NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
 			MainJar = minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar";
 			Version=LastVersionID;
 			launcher_profile.put("selectedProfile",ProfileName);
@@ -263,52 +274,156 @@ public class Launcher{
 			JSONObject LaunchFile = JSONFunction.CreateFromFile(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json");
 			MainClass = LaunchFile.getString("mainClass");
 			LaunchArgs = LaunchFile.getString("minecraftArguments");
-			AssetsIndex=(JSONFunction.Search(LaunchFile,"assets")?LaunchFile.getString("assets"):"");
+			AssetsIndex=(JSONFunction.Search(LaunchFile,"assets")?(Version.matches("[0-9.]+")?Version:LaunchFile.getString("assets")):"legacy");
 			JSONArray Libraries = LaunchFile.getJSONArray("libraries");
 			
 			
 			//---------------------刪除,重下載程式庫---------------
 			
-			String NativesTail="-"+(RFInfo.getOS().equals("linux")?"natives-linux":"natives-windows-"+System.getProperty("os.arch"));
+			String NativesTail="-"+(RFInfo.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
 			
-			if(NeedDownload){
+			//if(NeedDownload){
 				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-				//RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("DeletingLib"));
-				//System.out.println("Deleting libaries...");
-				//System.out.println(deleteDir(new File(LibrariesDir))?"Delete success!":"Delete unsuccess!");
-				new File(LibrariesDir).mkdir();
-				//System.out.println("Deleted libraries!");
+				if(!new File(LibrariesDir).isDirectory()) new File(LibrariesDir).mkdir();
 				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
 				System.out.println("Downloading libraries");
 				RFInfo.Theme.MainProgressBar.setMaximum(Libraries.length());
 				RFInfo.Theme.MainProgressBar.setValue(0);
-				HashMap<String,String> DownloadJobs=new HashMap<>();
+				ArrayList<DownloadObject> DownloadJobs=new ArrayList<>();
 				for(int i=0;i<Libraries.length();i++){
 					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					String[] temp = LibrariesPath.split(":");
-					LibrariesPath = temp[0].replace(".", SplitChar);
-					for(int j=1;j<temp.length;j++){
-						LibrariesPath += (SplitChar+temp[j]);
+					//LibrariesPath=LibrariesPath.replace(":",".");
+					//LibrariesPath=LibrariesPath.substring(0,LibrariesPath.lastIndexOf(".")-1).replace(".",SplitChar);
+					String[] SplitedPath = LibrariesPath.split(":");
+					LibrariesPath = SplitedPath[0].replace(".", SplitChar);
+					for(int j=1;j<SplitedPath.length;j++){
+						LibrariesPath += (SplitChar+SplitedPath[j]);
 					}
+					//String[] SplitedPath = LibrariesPath.split(SplitChar);
+					String FileURL="";
+					//String downloadURL="";
+					FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
+					FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
+					FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
+					FileURL += (SplitedPath[SplitedPath.length-2].matches("scala-[a-zA-z0-9.]+")?".pack.xz":"");
+					
 					if(CheckLibPermission(Libraries.getJSONObject(i))){
-						String FileURL="";
-						//String downloadURL="";
-						FileURL = (LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1]);
-						FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
-						FileURL += (temp[temp.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
-						FileURL += (temp[temp.length-2].matches("scala-[a-zA-z0-9.]+")?".pack.xz":"");
-						//http://repo1.maven.org/maven2/org/scala-lang/scala-library/2.10.2/scala-library-2.10.2.jar
 						System.out.println("-- "+FileURL);
-						DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
-						//Key=DownloadURL(FileURL),Value=DownloadHost
+						DownloadObject OneLibrary = new DownloadObject();
+						//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
+						OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/");
+						OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL;
+						DownloadJobs.add(OneLibrary);
+						//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
 						}else{
-						System.out.println("Skip download: "+LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar");
+						System.out.println("Skip download: "+LibrariesDir+FileURL);
 					}
 				}
 				new ThreadJob().DownloadJob("Libraries",DownloadJobs);
+			//}
+			
+			//------------------下載assets-------------------
+			
+			System.out.print("\n");
+			RFInfo.Theme.MainProgressBar.setIndeterminate(false);
+			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingAssets"));
+			try{
+				new ThreadJob().DownloadJob("AssetsIndex",new DownloadObject(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
+				RFInfo.Theme.MainProgressBar.setValue(0);
+				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
+				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingAssets"));
+				JSONObject AssetsIndexJSON = JSONFunction.CreateFromFile(this.minecraftDir+SplitChar+"assets"+SplitChar+"indexes"+SplitChar+AssetsIndex+".json");
+				boolean Virtual = JSONFunction.Search(AssetsIndexJSON,"virtual")&&AssetsIndexJSON.getBoolean("virtual");
+				HashMap<DownloadObject,Integer> DownloadAssets = new HashMap<>();
+				for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){				
+					String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
+					
+					//Objects->Virtual
+					if(Virtual&&new File(AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash).isFile()){
+						String OldFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+						String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
+						if(!new File(NewFile).isFile()){
+							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+							new File(NewFile).createNewFile();
+							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+							WriteStream.write(DownloadThread.readFully(ReadStream));
+							WriteStream.flush();
+							ReadStream.close();
+							WriteStream.close();
+						}
+					}
+					/*//Virtual->Objects
+					if(!Virtual&&new File(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName).isFile()){
+						String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
+						String NewFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+						if(!new File(NewFile).isFile()){
+							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+							new File(NewFile).createNewFile();
+							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+							WriteStream.write(DownloadThread.readFully(ReadStream));
+							WriteStream.flush();
+							ReadStream.close();
+							WriteStream.close();
+						}
+					}*/
+					
+					DownloadObject OneDownloadAsset=new DownloadObject();
+					OneDownloadAsset.DownloadPath=(this.AssetsBaseDownloadURL+Hash.substring(0,2)+SplitChar+Hash).replace(SplitChar,"/");
+					OneDownloadAsset.FilePath=
+							(Virtual?AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:AssetsDir+SplitChar+"objects"+SplitChar)+
+							(Virtual?OneAssetName.replace("/",SplitChar):Hash.substring(0,2)+SplitChar+Hash);
+					DownloadAssets.put(OneDownloadAsset,AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getInt("size"));
+				}
+				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
+				
+				//----------按檔案大小排序檔案-------------
+				ArrayList<Entry<DownloadObject, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
+				Collections.sort(Sorter,new Comparator<Entry<DownloadObject,Integer>>(){
+					@Override
+					public int compare(Entry<DownloadObject, Integer> o1,Entry<DownloadObject, Integer> o2){
+						return (o1.getValue()-o2.getValue());
+					}	
+				});
+				
+				ArrayList<DownloadObject> SortedAssets = new ArrayList<>();
+				for(Entry<DownloadObject,Integer> OneDownloadObject:Sorter){
+					SortedAssets.add(OneDownloadObject.getKey());
+				}
+				//-------------END 排序-----------------
+				
+				new ThreadJob().DownloadJob("Assets",20,SortedAssets);
+				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
+				AssetsDir+=(Virtual?SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:"");
+				
+				/*if(Virtual){
+					makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar);
+					for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){
+						String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
+						
+						String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+						String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.replace("/",SplitChar);
+						if(!new File(NewFile).isFile()){
+							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+							new File(NewFile).createNewFile();
+							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+							WriteStream.write(DownloadThread.readFully(ReadStream));
+							WriteStream.flush();
+							ReadStream.close();
+							WriteStream.close();
+							//new File(OldFile).delete();
+						}
+					}
+					//deleteDir(new File(AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar));
+					AssetsDir+=SplitChar+"virtual"+SplitChar+AssetsIndex;
+				}*/
+			}catch(IOException e){
+				System.out.println("--*DownloadAssetsError*--");
+				e.printStackTrace();
 			}
-			
-			
+			RFInfo.Theme.MainProgressBar.setIndeterminate(false);
 			//------------------解壓,載入程式庫----------------
 			File ExtractDir = new File(NativesDir+SplitChar);
 			RFInfo.Theme.MainProgressBar.setValue(0);
@@ -403,6 +518,7 @@ public class Launcher{
             	System.out.println("Deleted Natives Dir!");
             }
             RFInfo.MainFrameObj.dispose(); //結束程式
+            System.exit(0);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -418,7 +534,7 @@ public class Launcher{
 		String splitChar=SplitChar;
 		String[] Dirs = dir.split(splitChar.equals("\\")?"\\\\":splitChar);
 		String temp="";
-		System.out.println("Creating Dir: "+dir);
+		//System.out.println("Creating Dir: "+dir);
 		for(String OneDir:Dirs){
 			temp += OneDir+SplitChar;
 			if(!new File(temp).isDirectory())
@@ -529,386 +645,4 @@ public class Launcher{
 		return true; //default(no rules)
 		*/
 	}
-}/*
-class Launche_linux extends Launcher{{
-	SplitChar="/";
-	minecraftDir= System.getProperty("user.home")+"/.minecraft/";
-	JVMPath = System.getProperty("java.home")+"/bin/java";
 }
-	@Override
-	public void LauncheGame(String PlayerName,String ProfileName,String session){
-		String VersionName="";
-		String GameDir="";
-		String AssetsDir=minecraftDir+"assets";
-		String MainClass="";
-		String MainJar="";
-		String LauncheCmd="";
-		String NativesDir="";
-		String LauncheArgs="";
-		String Version="";
-		boolean NeedDownload=false;
-		String LibrariesDir=minecraftDir+"libraries"+SplitChar;
-		System.out.println("\n--Launching Game...");
-		//Long LauncheTime = System.currentTimeMillis();
-		LauncheCmd += this.JVMPath;
-		System.out.println("Free Memory: "+Runtime.getRuntime().totalMemory());
-		try {
-			//-------------讀取必要資訊--------------
-			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
-			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) && !Login.canConnect()){
-				//System.out.println("dassddasd");
-				RFInfo.MainFrameObj.LoginBtm.setEnabled(true);
-				RFInfo.MainFrameObj.UserBox.setEnabled(true);
-				RFInfo.MainFrameObj.PwdBox.setEnabled(true);
-				RFInfo.MainFrameObj.ProfileSelectBox.setEnabled(true);
-				RFInfo.MainFrameObj.RememberMe.setEnabled(true);
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-				RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("OfflineDownload"));
-				RFInfo.MainFrameObj.MainProgressBar.setEnabled(false);
-				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+RFInfo.SelectedLang.getString("OfflineDownload")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-				return;
-			}
-			LauncheCmd += " "+(JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"javaArgs")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("javaArgs"):"-Xmx"+(System.getProperty("sun.arch.data.model").equals("32")?"512M":"1G"));
-			GameDir = JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"gameDir")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("gameDir"):minecraftDir;
-			//PlayerName = launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("displayName");
-			//String Token = ("token:"+launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("accessToken")+":"+launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID"));
-			String LastVersionID = JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"lastVersionId")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("lastVersionId"):"1.6.2";
-			NativesDir = (minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+"-natives-" + System.nanoTime());
-			NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
-			MainJar = minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar";
-			Version=LastVersionID;
-			launcher_profile.put("selectedProfile",ProfileName);
-			JSONFunction.WriteToFile(launcher_profile,minecraftDir+"launcher_profiles.json");
-			System.out.println("GameDir="+GameDir);
-			System.out.println("PlayerDisplayName="+PlayerName);
-			System.out.println("Session=******");
-			System.out.println("BaseVersion="+Version);
-			JSONObject LauncheFile = JSONFunction.CreateFromFile(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json");
-			MainClass = LauncheFile.getString("mainClass");
-			LauncheArgs = LauncheFile.getString("minecraftArguments");
-			JSONArray Libraries = LauncheFile.getJSONArray("libraries");
-			
-			
-			//---------------------刪除,重下載程式庫---------------
-			if(NeedDownload){
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(true);
-				RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("DeletingLib"));
-				System.out.println("Deleting libaries...");
-				System.out.println(FileFunction.deleteDir(new File(LibrariesDir))?"Delete success!":"Delete unsuccess!");
-				new File(LibrariesDir).mkdir();
-				System.out.println("Deleted libraries!");
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-				System.out.println("Downloading libraries");
-				RFInfo.MainFrameObj.MainProgressBar.setMaximum(Libraries.length());
-				RFInfo.MainFrameObj.MainProgressBar.setValue(0);
-				ArrayList<String> DownloadURLs=new ArrayList<String>();
-				ArrayList<String> DownloadBases=new ArrayList<String>();
-				for(int i=0;i<Libraries.length();i++){
-					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					String[] temp = LibrariesPath.split(":");
-					LibrariesPath = temp[0].replace(".", SplitChar);
-					for(int j=1;j<temp.length;j++){
-						LibrariesPath += (SplitChar+temp[j]);
-					}
-					//this.MainFrameObj.MainProgressBar.setString(this.MainFrameObj.SelectedLang.Downloading+temp[temp.length-2]+(new JSONFounction().Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar")+"-"+temp[temp.length-1]);
-					if(CheckLibPermission(Libraries.getJSONObject(i))){
-						String FileURL="";
-						String downloadURL="";
-						FileURL = (LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1]);
-						FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar");
-						System.out.println("-- "+FileURL);
-						DownloadURLs.add(FileURL);
-						DownloadBases.add(JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
-					}else{
-						System.out.println("Skip download: "+LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar"));
-					}
-				}
-				new ThreadJob().DownloadJob(DownloadBases,DownloadURLs);
-			}
-			
-			
-			//------------------解壓,載入程式庫----------------
-			File ExtractDir = new File(NativesDir+SplitChar);
-			RFInfo.MainFrameObj.MainProgressBar.setValue(0);
-			RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib"));
-			RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(true);
-			if(!ExtractDir.exists() || !ExtractDir.isDirectory()){
-				makeDir(NativesDir+SplitChar,this.SplitChar);
-				System.out.println("-Created natives dir!");
-			}
-			LauncheCmd += " -Djava.library.path="+NativesDir;
-			LauncheCmd += " -cp ";
-			ArrayList<String> extractFiles = new ArrayList<String>();
-			ArrayList<String> extractTargetDir = new ArrayList<String>();
-			ArrayList<ArrayList<String>> extractExclude = new ArrayList<ArrayList<String>>();
-			RFInfo.MainFrameObj.MainProgressBar.setMaximum(Libraries.length());
-			System.out.println("\n----------");
-			for(int i=0;i<Libraries.length();i++){
-				if(CheckLibPermission(Libraries.getJSONObject(i))){
-					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					String[] temp = LibrariesPath.split(":");
-					LibrariesPath = temp[0].replace(".", SplitChar);
-					for(int j=1;j<temp.length;j++){
-						LibrariesPath += (SplitChar+temp[j]);
-					}
-					//String[] SortedArray = new JSONObject().getNames(Libraries.getJSONObject(i));
-					//Arrays.sort(SortedArray);
-					if(JSONFunction.Search(Libraries.getJSONObject(i), "extract")){
-						String[] FileList = (new File(minecraftDir+"libraries"+SplitChar+LibrariesPath).list());
-						//System.out.println(FileList[0]);
-						System.out.println("Will Extract library: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar"));
-						//new unZip(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(new JSONFounction().Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar"),NativesDir+SplitChar,new JSONFounction().readArray(Libraries.getJSONObject(i).getJSONObject("extract").getJSONArray("exclude")));
-						extractFiles.add(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar"));
-						extractTargetDir.add(NativesDir+SplitChar);
-						ArrayList<String> excludeTemp=new ArrayList<String>();
-						for(String OneExclude:JSONFunction.readArray(Libraries.getJSONObject(i).getJSONObject("extract").getJSONArray("exclude"))){
-							excludeTemp.add(OneExclude);
-						}
-						extractExclude.add(excludeTemp);
-					}else{
-						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar"));
-						LauncheCmd += LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-linux.jar":".jar")+":";
-					}
-				}
-			}
-			System.out.println("----------");
-			new ThreadJob().ExtractJob(extractFiles,extractTargetDir,extractExclude);
-			LauncheCmd += MainJar+" "+MainClass;
-			//System.out.println(LauncheClassPath);
-		} catch (IOException e) {
-			System.out.println("Launche Error!");
-			e.printStackTrace();
-		}
-		
-		RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("LaunchingGame"));
-		RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-		RFInfo.MainFrameObj.MainProgressBar.setEnabled(false);
-		LauncheArgs=LauncheArgs.replace("${auth_player_name}",PlayerName);
-		LauncheArgs=LauncheArgs.replace("${auth_uuid}",session.split(":")[2]);
-		LauncheArgs=LauncheArgs.replace("${auth_access_token}",session.split(":")[1]);
-		LauncheArgs=LauncheArgs.replace("${auth_session}",session);
-		LauncheArgs=LauncheArgs.replace("${game_directory}",GameDir);
-		LauncheArgs=LauncheArgs.replace("${game_assets}",AssetsDir);
-		LauncheArgs=LauncheArgs.replace("${version_name}",Version);
-		LauncheCmd += " "+LauncheArgs;
-		try {
-			System.out.println("\nRunning Command: "+LauncheCmd);
-			System.out.println("--Launche Finish!");
-			TimeCounter.stop();
-			TimeCounter.count();
-			RFInfo.MainFrameObj.setVisible(false);
-			Process LauncheProcess = Runtime.getRuntime().exec(LauncheCmd);
-			BufferedReader p_in = new BufferedReader(new InputStreamReader(LauncheProcess.getInputStream()));
-            String line="";
-            try{
-            	LauncheProcess.exitValue();
-            	System.out.println("Launche Over Return:"+LauncheProcess.exitValue());
-            }catch(IllegalThreadStateException e){
-            	System.out.println("\nGame is Running");
-            }
-            while((line = p_in.readLine()) != null){
-            	System.out.println("【Minecraft Console】> "+line);
-            	if(line.indexOf("#@?@# ")>=0){
-            		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+RFInfo.SelectedLang.getString("GameError")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-            		break;
-            	}
-            }
-            p_in.close();
-            FileFunction.deleteDir(new File(NativesDir+SplitChar));
-            System.out.println("Deleted Natives Dir!");
-            RFInfo.MainFrameObj.dispose(); //結束程式
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		}
-}
-class Launche_windows extends Launcher{{
-	SplitChar="\\";
-	minecraftDir= (((System.getenv("APPDATA")!=null)?System.getenv("APPDATA"):System.getProperty("user.home", "."))+"\\.minecraft\\");
-	JVMPath = "\""+System.getProperty("java.home")+"\\bin\\"+(new File("\""+System.getProperty("java.home")+"\\bin\\javaw.exe\"").isFile()?"javaw.exe":"java")+"\"";
-}	
-	@Override
-	public void LauncheGame(String PlayerName,String ProfileName,String session){
-		String VersionName="";
-		String GameDir="";
-		String AssetsDir=minecraftDir+"assets";
-		String MainClass="";
-		String MainJar="";
-		String LauncheCmd="";
-		String NativesDir="";
-		String LauncheArgs="";
-		String Version="";
-		boolean NeedDownload=false;
-		String LibrariesDir=minecraftDir+"libraries"+SplitChar;
-		System.out.println("\n--Launching Game...");
-		//Long LauncheTime = System.currentTimeMillis();
-		LauncheCmd += this.JVMPath;
-		System.out.println("Free Memory: "+Runtime.getRuntime().totalMemory());
-		try {
-			//-----------載入必要資訊----------
-			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
-			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) && !Login.canConnect()){
-				//System.out.println("dassddasd");
-				RFInfo.MainFrameObj.LoginBtm.setEnabled(true);
-				RFInfo.MainFrameObj.UserBox.setEnabled(true);
-				RFInfo.MainFrameObj.PwdBox.setEnabled(true);
-				RFInfo.MainFrameObj.ProfileSelectBox.setEnabled(true);
-				RFInfo.MainFrameObj.RememberMe.setEnabled(true);
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-				RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("OfflineDownload"));
-				RFInfo.MainFrameObj.MainProgressBar.setEnabled(false);
-				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+RFInfo.SelectedLang.getString("OfflineDownload")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-				return;
-			}
-			LauncheCmd += " "+(JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"javaArgs")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("javaArgs"):"-Xmx"+(System.getProperty("sun.arch.data.model").equals("32")?"512M":"1G"));
-			GameDir = (JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"gameDir")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("gameDir"):minecraftDir);
-			//PlayerName = launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("displayName");
-			//String Token = ("token:"+launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("accessToken")+":"+launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID"));
-			String LastVersionID = JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"lastVersionId")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("lastVersionId"):"1.6.2";
-			NativesDir = (minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+"-natives-" + System.nanoTime());
-			NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
-			MainJar = minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar";
-			Version=LastVersionID;
-			launcher_profile.put("selectedProfile",ProfileName);
-			JSONFunction.WriteToFile(launcher_profile,minecraftDir+"launcher_profiles.json");
-			System.out.println("GameDir="+GameDir);
-			System.out.println("PlayerDisplayName="+PlayerName);
-			//System.out.println("Session=******");
-			System.out.println("BaseVersion="+Version);
-			JSONObject LauncheFile = JSONFunction.CreateFromFile(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json");
-			MainClass = LauncheFile.getString("mainClass");
-			LauncheArgs = LauncheFile.getString("minecraftArguments");
-			JSONArray Libraries = LauncheFile.getJSONArray("libraries");
-			
-			
-			//---------------------刪除,重下載程式庫---------------
-			if(NeedDownload){
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(true);
-				RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("DeletingLib"));
-				System.out.println("Deleting libaries...");
-				System.out.println(FileFunction.deleteDir(new File(LibrariesDir))?"Delete success!":"Delete unsuccess!");
-				new File(LibrariesDir).mkdir();
-				System.out.println("Deleted libraries!");
-				RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-				System.out.println("Downloading libraries");
-				ArrayList<String> DownloadURLs=new ArrayList<String>();
-				ArrayList<String> DownloadBases=new ArrayList<String>();
-				for(int i=0;i<Libraries.length();i++){
-					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					String[] temp = LibrariesPath.split(":");
-					LibrariesPath = temp[0].replace(".", SplitChar);
-					for(int j=1;j<temp.length;j++){
-						LibrariesPath += (SplitChar+temp[j]);
-					}
-					RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+temp[temp.length-2]+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar")+"-"+temp[temp.length-1]);
-					if(CheckLibPermission(Libraries.getJSONObject(i))){
-						String FileURL="";
-						String downloadURL="";
-						FileURL = (LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1]);
-						FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar");
-						System.out.println("-- "+FileURL);
-						DownloadURLs.add(FileURL);
-						DownloadBases.add(JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
-					}else{
-						System.out.println("Skip download: "+LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar"));
-					}
-				}
-				new ThreadJob().DownloadJob(DownloadBases,DownloadURLs);
-			}
-			
-			
-			//------------------解壓,載入程式庫----------------
-			File ExtractDir = new File(NativesDir+SplitChar);
-			RFInfo.MainFrameObj.MainProgressBar.setValue(0);
-			RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib"));
-			RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(true);
-			System.out.println(NativesDir+SplitChar);
-			if(!ExtractDir.exists() || !ExtractDir.isDirectory()){
-				makeDir(NativesDir+SplitChar,"\\"+this.SplitChar);
-				System.out.println("-Created natives dir!");
-			}
-			LauncheCmd += " -Djava.library.path="+NativesDir;
-			LauncheCmd += " -cp ";
-			RFInfo.MainFrameObj.MainProgressBar.setMaximum(Libraries.length());
-			ArrayList<String> extractFiles = new ArrayList<String>();
-			ArrayList<String> extractTargetDir = new ArrayList<String>();
-			ArrayList<ArrayList<String>> extractExclude = new ArrayList<ArrayList<String>>();
-			System.out.println("\n----------");
-			for(int i=0;i<Libraries.length();i++){
-				if(CheckLibPermission(Libraries.getJSONObject(i))){
-					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					String[] temp = LibrariesPath.split(":");
-					LibrariesPath = temp[0].replace(".", SplitChar);
-					for(int j=1;j<temp.length;j++){
-						LibrariesPath += (SplitChar+temp[j]);
-					}
-					//String[] SortedArray = new JSONObject().getNames(Libraries.getJSONObject(i));
-					//Arrays.sort(SortedArray);
-					if(JSONFunction.Search(Libraries.getJSONObject(i), "extract")){
-						String[] FileList = (new File(minecraftDir+"libraries"+SplitChar+LibrariesPath).list());
-						//System.out.println(FileList[0]);
-						System.out.println("Will Extract library: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar"));
-						//new unZip(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(new JSONFounction().Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar"),NativesDir+SplitChar,new JSONFounction().readArray(Libraries.getJSONObject(i).getJSONObject("extract").getJSONArray("exclude")));
-						extractFiles.add(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar"));
-						extractTargetDir.add(NativesDir+SplitChar);
-						ArrayList<String> excludeTemp=new ArrayList<String>();
-						for(String OneExclude:JSONFunction.readArray(Libraries.getJSONObject(i).getJSONObject("extract").getJSONArray("exclude"))){
-							excludeTemp.add(OneExclude);
-						}
-						extractExclude.add(excludeTemp);
-					}else{
-						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar"));
-						LauncheCmd += LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?"-natives-windows.jar":".jar")+";";
-					}
-				}
-			}
-			System.out.println("----------");
-			new ThreadJob().ExtractJob(extractFiles,extractTargetDir,extractExclude);
-			LauncheCmd += MainJar+" "+MainClass;
-			//System.out.println(LauncheClassPath);
-		} catch (IOException e) {
-			System.out.println("Launche Error!");
-			e.printStackTrace();
-		}
-		RFInfo.MainFrameObj.MainProgressBar.setString(RFInfo.SelectedLang.getString("LaunchingGame"));
-		RFInfo.MainFrameObj.MainProgressBar.setIndeterminate(false);
-		RFInfo.MainFrameObj.MainProgressBar.setEnabled(false);
-		LauncheArgs=LauncheArgs.replace("${auth_player_name}",PlayerName);
-		LauncheArgs=LauncheArgs.replace("${auth_uuid}",session.split(":")[2]);
-		LauncheArgs=LauncheArgs.replace("${auth_access_token}",session.split(":")[1]);
-		LauncheArgs=LauncheArgs.replace("${auth_session}",session);
-		LauncheArgs=LauncheArgs.replace("${game_directory}",GameDir);
-		LauncheArgs=LauncheArgs.replace("${game_assets}",AssetsDir);
-		LauncheArgs=LauncheArgs.replace("${version_name}",Version);
-		LauncheCmd += " "+LauncheArgs;
-		try {
-			System.out.println("\nRunning Command: "+LauncheCmd);
-			System.out.println("--Launche Finish!");
-			TimeCounter.stop();
-			TimeCounter.count();
-			RFInfo.MainFrameObj.setVisible(false);
-			Process LauncheProcess = Runtime.getRuntime().exec(LauncheCmd);
-			BufferedReader p_in = new BufferedReader(new InputStreamReader(LauncheProcess.getInputStream()));
-            String line="";
-            try{
-            	LauncheProcess.exitValue();
-            	System.out.println("Launche Over Return:"+LauncheProcess.exitValue());
-            }catch(IllegalThreadStateException e){
-            	System.out.println("\nGame is Running");
-            }
-            while((line = p_in.readLine()) != null){
-            	System.out.println("【Minecraft Console】> "+line);
-            	if(line.matches(".*#@.@#.*")){
-            		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+RFInfo.SelectedLang.getString("GameError")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-            		break;
-            	}
-            }
-            p_in.close();
-            FileFunction.deleteDir(new File(NativesDir+SplitChar));
-            System.out.println("Deleted Natives Dir!");
-            RFInfo.MainFrameObj.dispose(); //結束程式
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		}
-}*/

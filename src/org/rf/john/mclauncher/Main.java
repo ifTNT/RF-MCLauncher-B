@@ -176,7 +176,7 @@ public class Main {
 		System.out.println("  |      |              \\      \\            |        |");
 		System.out.println("  |___|                \\___\\   as   |____|   un軟體工作室");
 		System.out.println("\nRF-MCLauncher-B "+RFInfo.Version);
-		System.out.println("版權所有 (C) 2013 by曙@RasFun軟體工作室");
+		System.out.println("版權所有 (C) 2014 by曙@RasFun軟體工作室");
 		System.out.println("本程式採用GPLv3授權 請詳閱相關條款\n");
 		System.out.print("Arguments: ");
 		for(String OneArg:args){
@@ -580,36 +580,30 @@ class Save_LoadConfig{ //設定檔操作
  *
  */
 class ThreadJob{
-	private int JobCount;
-	private int FinishedJobs;
+	private int JobCount=0;
+	private int FinishedJobs=0;
+	private int RunningJobs=0;
 	//private MainFrame FrameObj;
 	private ThreadJobType Type;
 	private String JobName;
+	private ThreadJob ThisJob;
 	private int o0o=0;
 	private int o0oDelay=0;
-	/**
-	 * 開始多執行緒下載
-	 * @param _JobName 工做名稱
-	 * @param DownloadBaseURL 下載路徑(Key=URL,Value=DownloadHost)
-	 */
-	public void DownloadJob(String _JobName,HashMap<String,String> DownloadBaseURL){
+	public static enum ThreadJobType{
+		Download,Extract
+	}
+	
+	public void DownloadJob(String _jn,DownloadObject Do){
+		RFInfo.Busy=true;
 		this.Type=ThreadJobType.Download;
-		this.JobCount=DownloadBaseURL.size();
-		this.JobName=_JobName;
-		RFInfo.Theme.MainProgressBar.setMaximum(this.JobCount);
-		System.out.print("\n---Starting job:[Download]");
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+"("+this.FinishedJobs+"/"+this.JobCount+")");
-		System.out.println(" max thread:"+this.JobCount);
-		for(Entry<String,String> OneDownloadJob:DownloadBaseURL.entrySet()){
-			new DownloadThread(OneDownloadJob.getValue(),OneDownloadJob.getKey(),this).start();
-		}
-		while(this.FinishedJobs!=this.JobCount){
-			if(o0oDelay==0){
-				String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
-				o0o=(o0o+1)%3;
-			}
-			o0oDelay=(o0oDelay+1)%80;
+		this.JobCount=1;
+		this.FinishedJobs=0;
+		RFInfo.Theme.MainProgressBar.setIndeterminate(true);
+		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading"));
+		RFInfo.Theme.MainProgressBar.setMaximum(0);
+		//RFInfo.Theme.MainProgressBar.setValue(0);
+		new DownloadThread(Do.DownloadPath,Do.FilePath,this,"Td1").start();
+		while(this.FinishedJobs!=1){
 			try {
 				Thread.sleep(1);
 			} catch (InterruptedException e) {
@@ -617,9 +611,116 @@ class ThreadJob{
 				e.printStackTrace();
 			}
 		}
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib"));
-		System.out.println("---Finished job:["+this.JobName+"][Download]");
+		RFInfo.Theme.MainProgressBar.setIndeterminate(false);
+		RFInfo.Busy=false;
 		return;
+	}
+	/**
+	 * 開始多執行緒下載
+	 * @param _JobName 工做名稱
+	 * @param DownloadBaseURL 下載物件
+	 */
+	public void DownloadJob(String _JobName,ArrayList<DownloadObject> DownloadObjects){DownloadJob(_JobName,DownloadObjects.size(),DownloadObjects);}
+	public void DownloadJob(String _JobName,int MaxThreads,ArrayList<DownloadObject> DownloadObjects){
+		RFInfo.Busy=true;
+		this.ThisJob=this;
+		final ArrayList<DownloadObject> NeedDownloads=new ArrayList<>();
+		for(int i=0;i<=DownloadObjects.size()-1;i++/*int i=DownloadObjects.size()-1;i>=0;i--*/){
+			DownloadObject OneDownloadJob=DownloadObjects.get(i);
+			if(!new File(OneDownloadJob.FilePath.replace("-universal","")).isFile()){NeedDownloads.add(OneDownloadJob);}
+		}
+		this.Type=ThreadJobType.Download;
+		this.JobCount=NeedDownloads.size();
+		this.JobName=_JobName;
+		if(MaxThreads>this.JobCount) MaxThreads=this.JobCount;
+		RFInfo.Theme.MainProgressBar.setMaximum(this.JobCount);
+		if(this.JobCount>=1){
+			System.out.print("\n---Starting job:["+this.JobName+"][Download]");
+			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+"("+this.FinishedJobs+"/"+this.JobCount+")");
+			System.out.println(" max thread:"+MaxThreads);
+			
+			final int _MaxThreads=MaxThreads/2;
+		
+			new Thread(){ //DownloadHub1 (0~[1/2-1])
+				@Override
+				public void run(){
+					Thread.currentThread().setName("DownloadHub1");
+					for(int i=0;i<=(JobCount/2)-1;i++){
+						DownloadObject OneDownloadJob=NeedDownloads.get(i);
+						if(RunningJobs>=_MaxThreads){
+							try {
+								while(RunningJobs>_MaxThreads/2){
+									/*if(o0oDelay==0){
+										String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
+										RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+FinishedJobs+"/"+JobCount+")"+Showo0o);
+										o0o=(o0o+1)%3;
+									}
+									o0oDelay=(o0oDelay+1)%80;*/
+									Thread.sleep(1);
+								}
+								Thread.sleep(100);
+							} catch (InterruptedException e) {
+								System.out.println("--*DownloadThreadJobSleepError*--");
+								e.printStackTrace();
+							}
+						}
+						new DownloadThread(OneDownloadJob.DownloadPath,OneDownloadJob.FilePath,ThisJob,"Td"+i).start();
+						RegisterThread();						
+					}
+				}
+			}.start();
+			
+			if(JobCount>=2)
+			new Thread(){ //DownloadHub2 (1/2~1)
+				@Override
+				public void run(){
+					Thread.currentThread().setName("DownloadHub2");
+					for(int j=JobCount/2;j<=JobCount-1;j++){
+						DownloadObject OneDownloadJob=NeedDownloads.get(j);
+						if(RunningJobs>=_MaxThreads){
+							try {
+								while(RunningJobs>_MaxThreads/2){
+									/*if(o0oDelay==0){
+										String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
+										RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+FinishedJobs+"/"+JobCount+")"+Showo0o);
+										o0o=(o0o+1)%3;
+									}
+									o0oDelay=(o0oDelay+1)%80;*/
+									Thread.sleep(1);
+								}
+								Thread.sleep(100);
+							} catch (InterruptedException e) {
+								System.out.println("--*DownloadThreadJobSleepError*--");
+								e.printStackTrace();
+							}
+						}
+						new DownloadThread(OneDownloadJob.DownloadPath,OneDownloadJob.FilePath,ThisJob,"Td"+j).start();
+						RegisterThread();
+						
+					}
+				}
+			}.start();
+			while(this.FinishedJobs!=this.JobCount){
+				if(o0oDelay==0){
+					String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
+					RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
+					o0o=(o0o+1)%3;
+				}
+				o0oDelay=(o0oDelay+1)%80;
+				try {
+					Thread.sleep(1);
+				} catch (InterruptedException e) {
+					System.out.println("--*DownloadThreadJobError*--");
+					e.printStackTrace();
+				}
+			}
+			System.out.println("---Finished job:["+this.JobName+"][Download]");
+		}
+		RFInfo.Busy=false;
+		return;
+	}
+	private synchronized void RegisterThread(){
+		this.RunningJobs++;
 	}
 	
 	/**
@@ -654,7 +755,6 @@ class ThreadJob{
 				e.printStackTrace();
 			}
 		}
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib"));
 		System.out.println("---Finished job:["+this.JobName+"][Extract]");
 		return;
 	}
@@ -663,6 +763,7 @@ class ThreadJob{
 	 */
 	public synchronized void FinishJob(){
 		this.FinishedJobs++;
+		this.RunningJobs--;
 		RFInfo.Theme.MainProgressBar.setValue(FinishedJobs); //完成進度
 		String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
 		switch(this.Type){
@@ -675,8 +776,19 @@ class ThreadJob{
 		}
 	}
 }
-enum ThreadJobType{
-	Download,Extract
+
+class DownloadObject{
+	public String DownloadPath;
+	//public String DownloadServer;
+	//public String FileRootDir;
+	public String FilePath;
+	public DownloadObject(){}
+	public DownloadObject(String _DownloadPath,String _FilePath){
+		this.DownloadPath=_DownloadPath;
+		//this.DownloadServer=Ds;
+		//this.FileRootDir=Frd;
+		this.FilePath=_FilePath;
+	}
 }
 /**
  * 多執行緒下載實作類別
@@ -686,7 +798,9 @@ enum ThreadJobType{
 class DownloadThread extends Thread{
 	private String FileURL="";
 	private ThreadJob JobTable;
-	private String DownloadBase;
+	private String DownloadURL="";
+	private String ThreadName="";
+	//private String RootDir;
 	
 	/**
 	 * 單一執行緒工作設定
@@ -694,50 +808,60 @@ class DownloadThread extends Thread{
 	 * @param DownloadURL 下載路徑
 	 * @param rootjob 工作分配器
 	 */
-	public DownloadThread(String DownloadHost,String DownloadURL,ThreadJob rootjob){
-		this.FileURL=DownloadURL;
+	public DownloadThread(String _DownloadURL,String _FileURL,ThreadJob rootjob,String _ThreadName){
+		this.FileURL=_FileURL;
 		this.JobTable=rootjob;
-		this.DownloadBase=DownloadHost;
+		this.DownloadURL=_DownloadURL;
+		this.ThreadName=_ThreadName;
+		//this.RootDir=rootDir;
 	}
 	@Override
 	public void run(){
-		String downloadURL=this.DownloadBase+FileURL.replace("\\","/"); //replace是給windows用的
-		String LibrariesDir=RFInfo.Launcher.minecraftDir+"libraries"+RFInfo.Launcher.SplitChar;
-		String[] LibrariesPathTemp=this.FileURL.split(RFInfo.Launcher.SplitChar.equals("\\")?"\\\\":RFInfo.Launcher.SplitChar); //windows要特別加"\\"
+		Thread.currentThread().setName(this.ThreadName);
+		//String downloadURL=this.DownloadBase+FileURL.replace("\\","/"); //replace是給windows用的
+		//String LibrariesDir=RFInfo.Launcher.minecraftDir+"libraries"+RFInfo.Launcher.SplitChar;
+		/*String[] LibrariesPathTemp=this.FileURL.split(RFInfo.Launcher.SplitChar.equals("\\")?"\\\\":RFInfo.Launcher.SplitChar); //windows要特別加"\\"
 		String LibrariesPath="";
 		for(int i=0;i<LibrariesPathTemp.length-1;i++){
 			LibrariesPath += LibrariesPathTemp[i]+RFInfo.Launcher.SplitChar;
 		}
+		System.out.println(this.FileURL+" , "+LibrariesPath);*/
 		
-		System.out.println("Starting make dir: "+LibrariesDir+LibrariesPath);
-		RFInfo.Launcher.makeDir(LibrariesDir+LibrariesPath);
-		System.out.println("Starting download: "+LibrariesDir+FileURL);
+		if(this.FileURL.lastIndexOf(RFInfo.Launcher.SplitChar)>0){
+			String TargetDir=this.FileURL.substring(0,this.FileURL.lastIndexOf(RFInfo.Launcher.SplitChar));
+			//System.out.println("Starting make dir: "+TargetDir);
+			RFInfo.Launcher.makeDir(TargetDir);
+		}
+		System.out.println("Starting download: "+this.FileURL.substring(this.FileURL.lastIndexOf(".minecraft")));
 		try{
-			URL DownloadUrlObj = new URL(downloadURL);
-			URLConnection urlc = DownloadUrlObj.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
-			ConnectObj.connect();
-			BufferedInputStream DownloadStream = new BufferedInputStream(ConnectObj.getInputStream());
-			new File(LibrariesDir+FileURL.replace("-universal","")).createNewFile();
-			if(FileURL.matches(".*\\.pack\\.xz")){
-				unpackLibrary(new File(LibrariesDir+FileURL),readFully(DownloadStream));
-			}else{
-				BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(LibrariesDir+FileURL.replace("-universal","")));
-				byte[] data = new byte[1024]; //緩衝區大小1024byte
-				int len = DownloadStream.read(data); //讀檔
-				while(len > 0) {
-					WriteStream.write(data,0,len);
-					len = DownloadStream.read(data);
+			if(!new File(FileURL.replace("-universal","")).isFile()){
+				URL DownloadUrlObj = new URL(this.DownloadURL);
+				URLConnection urlc = DownloadUrlObj.openConnection();
+				urlc.setConnectTimeout(5000);
+				HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
+				ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
+				ConnectObj.connect();
+				BufferedInputStream DownloadStream = new BufferedInputStream(ConnectObj.getInputStream());
+				new File(FileURL.replace("-universal","")).createNewFile();
+				if(FileURL.matches(".*\\.pack\\.xz")){
+					unpackLibrary(new File(FileURL),readFully(DownloadStream));
+				}else{
+					BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(FileURL.replace("-universal","")));
+					WriteStream.write(readFully(DownloadStream));
+					/*byte[] data = new byte[1024]; //緩衝區大小1024byte
+					int len = DownloadStream.read(data); //讀檔
+					while(len > 0) {
+						WriteStream.write(data,0,len);
+						len = DownloadStream.read(data);
+					}*/
+					WriteStream.flush();
+					DownloadStream.close();
+					WriteStream.close();
 				}
-				WriteStream.flush();
-				DownloadStream.close();
-				WriteStream.close();
 			}
-			System.out.println("Finish download:"+LibrariesDir+FileURL);
+			System.out.println("Finish download: "+this.FileURL.substring(this.FileURL.lastIndexOf(".minecraft")));
 		}catch(IOException e){
-			System.out.println("--*Download Error("+FileURL+")*--");
+			System.out.println("--*Download Error( "+FileURL+" )*--");
 			e.printStackTrace();
 			
 		}
