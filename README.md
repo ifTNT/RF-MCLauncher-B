@@ -37,9 +37,7 @@ RF-MCLauncher-B
     +可自動取得LastVersion
     +可自動判斷適合系統的語系
     +允許使用Apache Ant進行開發
-
-#####Download&Assets
-    *將scala的程式庫改為.pack.xz下載 以加快速度
+    *將Forge的程式庫改為.pack.xz下載 以加快速度
     +引用tukaani的xz java-1.4程式庫
     *改進下載的執行緒分配
     *如果欲下載的檔案存在 則不下載
