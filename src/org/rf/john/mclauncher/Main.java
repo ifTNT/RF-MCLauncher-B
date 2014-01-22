@@ -629,12 +629,16 @@ class ThreadJob{
 			DownloadObject OneDownloadJob=DownloadObjects.get(i);
 			if(!new File(OneDownloadJob.FilePath.replace("-universal","")).isFile()){NeedDownloads.add(OneDownloadJob);}
 		}
+		if(NeedDownloads.size()==1){
+			DownloadJob(_JobName,NeedDownloads.get(0));
+			return;
+		}
 		this.Type=ThreadJobType.Download;
 		this.JobCount=NeedDownloads.size();
 		this.JobName=_JobName;
 		if(MaxThreads>this.JobCount) MaxThreads=this.JobCount;
 		RFInfo.Theme.MainProgressBar.setMaximum(this.JobCount);
-		if(this.JobCount>=1){
+		if(this.JobCount>1){
 			System.out.print("\n---Starting job:["+this.JobName+"][Download]");
 			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+"("+this.FinishedJobs+"/"+this.JobCount+")");
 			System.out.println(" max thread:"+MaxThreads);
@@ -834,7 +838,7 @@ class DownloadThread extends Thread{
 		}
 		System.out.println("Starting download: "+this.FileURL.substring(this.FileURL.lastIndexOf(".minecraft")));
 		try{
-			if(!new File(FileURL.replace("-universal","")).isFile()){
+			if(!new File(FileURL).isFile()){
 				URL DownloadUrlObj = new URL(this.DownloadURL);
 				URLConnection urlc = DownloadUrlObj.openConnection();
 				urlc.setConnectTimeout(5000);
@@ -842,11 +846,11 @@ class DownloadThread extends Thread{
 				ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
 				ConnectObj.connect();
 				BufferedInputStream DownloadStream = new BufferedInputStream(ConnectObj.getInputStream());
-				new File(FileURL.replace("-universal","")).createNewFile();
-				if(FileURL.matches(".*\\.pack\\.xz")){
+				if(DownloadURL.matches(".*\\.pack\\.xz")){
 					unpackLibrary(new File(FileURL),readFully(DownloadStream));
 				}else{
-					BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(FileURL.replace("-universal","")));
+					new File(FileURL).createNewFile();
+					BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(FileURL));
 					WriteStream.write(readFully(DownloadStream));
 					/*byte[] data = new byte[1024]; //緩衝區大小1024byte
 					int len = DownloadStream.read(data); //讀檔
@@ -870,7 +874,8 @@ class DownloadThread extends Thread{
 	//------START 從ForgeInstaller複製過來的方法------
 	public static void unpackLibrary(File output, byte[] data) throws IOException {
 		byte[] decompressed = readFully(new XZInputStream(new ByteArrayInputStream(data)));
-	
+		System.out.println("Unpacking: "+output.getName()+".pack.xz");
+		
 		String end = new String(decompressed, decompressed.length - 4, 4);
 		if (!end.equals("SIGN")){
 			System.out.println("Unpacking failed, signature missing " + end);
@@ -895,6 +900,7 @@ class DownloadThread extends Thread{
 	
 		jos.close();
 		jarBytes.close();
+		System.out.println("Finish unpack: "+output.getName()+".pack.xz => "+output.getName());
 	}
 	public static byte[] readFully(InputStream stream) throws IOException{
 		byte[] data = new byte[4096];

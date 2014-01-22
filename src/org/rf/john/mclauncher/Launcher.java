@@ -305,18 +305,18 @@ public class Launcher{
 					FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
 					FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
 					FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
-					FileURL += (SplitedPath[SplitedPath.length-2].matches("scala-[a-zA-z0-9.]+")?".pack.xz":"");
+					//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
 					
 					if(CheckLibPermission(Libraries.getJSONObject(i))){
-						System.out.println("-- "+FileURL);
+						System.out.println("-- "+FileURL.replace("-universal",""));
 						DownloadObject OneLibrary = new DownloadObject();
 						//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
-						OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/");
-						OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL;
+						OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/")+(JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
+						OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL.replace("-universal","");
 						DownloadJobs.add(OneLibrary);
 						//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
 						}else{
-						System.out.println("Skip download: "+LibrariesDir+FileURL);
+						System.out.println("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
 					}
 				}
 				new ThreadJob().DownloadJob("Libraries",DownloadJobs);
