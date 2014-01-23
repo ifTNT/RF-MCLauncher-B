@@ -207,7 +207,7 @@ public class Main {
 		RFInfo.SelectedLang = new Languages().SelectLanguages(langconfig.Saved()?langconfig.getSelectedLang():LocalLang);
 		
 		try{
-			URL RFMCLB_InfoDownloadURL = new URL("http://rf_mclauncher_b.000space.com/RFMCLB_Info.json");
+			URL RFMCLB_InfoDownloadURL = new URL("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json");
 			URLConnection urlc = RFMCLB_InfoDownloadURL.openConnection();
 			urlc.setConnectTimeout(5000);
 			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
