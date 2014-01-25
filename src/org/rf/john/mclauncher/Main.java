@@ -52,28 +52,21 @@ tukaani.org xz-java-1.4.zip
 import javax.swing.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map.Entry;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Pack200;
@@ -94,12 +87,6 @@ import org.tukaani.xz.XZInputStream;
  * 
  */
 
-/*class OS{
-	/**
-	 * 取得作業系統
-	 * @return 作業系統代碼(windows,linux,know)
-	 *
-}*/
 class TimeCounter{ //計算程式執行時間
 	private static double startTime,stopTime;
 	/**
@@ -125,7 +112,6 @@ class TimeCounter{ //計算程式執行時間
 	}
 }
 public class Main {
-	@SuppressWarnings("deprecation")
 	public static void main(String args[]) {
 		/*
 		 * 啟動參數:
@@ -149,12 +135,9 @@ public class Main {
 		System.out.println("  |   |       \\   \\         |    |");
 		System.out.println("  |___|        \\___\\ as     |____| un軟體工作室");
 		//-------------------------------------------------------------
-		if(RFInfo.RunMode.equals(RunType.JAR)){
-			File file = new File("launch.log");  
-			FileOutputStream fis;
+		if(Status.RunMode.equals(RunType.JAR)){
 			try {
-				fis = new FileOutputStream(file);
-				PrintStream out = new PrintStream(fis); 
+				PrintStream out = new PrintStream(new FileOutputStream(new File("launch.log"))); 
 				System.setOut(out);
 				System.setErr(out);
 			} catch (FileNotFoundException e1) {
@@ -175,13 +158,13 @@ public class Main {
 		System.out.println("  |      |            \\      \\              |        |");
 		System.out.println("  |      |              \\      \\            |        |");
 		System.out.println("  |___|                \\___\\   as   |____|   un軟體工作室");
-		System.out.println("\nRF-MCLauncher-B "+RFInfo.Version);
+		System.out.println("\nRF-MCLauncher-B "+Status.Version);
 		System.out.println("版權所有 (C) 2014 by曙@RasFun軟體工作室");
 		System.out.println("本程式採用GPLv3授權 請詳閱相關條款\n");
 		System.out.print("Arguments: ");
 		for(String OneArg:args){
 			System.out.print(OneArg+" ");
-			RFInfo.Arguments.add(OneArg);
+			Status.Arguments.add(OneArg);
 		}
 		System.out.println("");
 		System.out.println("os.name= "+System.getProperty("os.name"));
@@ -204,27 +187,36 @@ public class Main {
 			break;
 			
 		}
-		RFInfo.SelectedLang = new Languages().SelectLanguages(langconfig.Saved()?langconfig.getSelectedLang():LocalLang);
+		Status.SelectedLang = new Languages().SelectLanguages(langconfig.Saved()?langconfig.getSelectedLang():LocalLang);
 		
-		try{
-			URL RFMCLB_InfoDownloadURL = new URL("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json");
+		Status.Launcher=new Launcher(Status.SelectedLang);
+		new Thread(){@Override public void run(){Login.checkConnect();}}.start();
+		new Thread(){@Override public void run(){
+			try {
+				/*URL RFMCLB_InfoDownloadURL = new URL("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json");
+				URLConnection urlc = RFMCLB_InfoDownloadURL.openConnection();
+				urlc.setConnectTimeout(5000);
+				HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
+				ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
+				ConnectObj.connect();*/
+				Status.RFMCLB_InfoJSON=JSONFunction.CreateFromStream(
+						DownloadThread.getConnectObj("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json").getInputStream());
+			} catch (IOException e) {
+				System.out.println("--*Get RFMCLB_Info Error*--");
+				e.printStackTrace();
+				System.out.println("--*Use default sitting*--");
+			}
+		}}.start();
+		/*try{
+			/*URL RFMCLB_InfoDownloadURL = new URL("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json");
 			URLConnection urlc = RFMCLB_InfoDownloadURL.openConnection();
 			urlc.setConnectTimeout(5000);
 			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
 			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
 			ConnectObj.connect();
-			BufferedInputStream InputStream = new BufferedInputStream(ConnectObj.getInputStream());
-			byte[] buf=new byte[128];
-			String RFMCLB_Info="";
-            int len=InputStream.read(buf);
-            while(len > 0){ 
-            	RFMCLB_Info = RFMCLB_Info+new String(buf);
-                len=InputStream.read(buf);
-            }
-			InputStream.close();
-			RFInfo.RFMCLB_InfoJSON=(RFMCLB_Info.equals("")?null:new JSONObject(RFMCLB_Info));
-			
-			RFInfo.Launcher=new Launcher();
+			RFInfo.RFMCLB_InfoJSON=JSONFunction.CreateFromStream(ConnectObj.getInputStream());*/
+					
+			//RFInfo.Launcher=new Launcher();
 			//JSONObject RFMCLB_InfoJSON = new JSONObject(RFMCLB_Info);
 			/*
 			//--------Start 產生物件-------
@@ -256,7 +248,7 @@ public class Main {
 				ConnectObj.connect();
 				//long FileSize=ConnectObj.getContentLengthLong();
 				InputStream = new BufferedInputStream(ConnectObj.getInputStream());
-				
+						
 				String Dirs[]="org/rf/john/mclauncher/".split("/");
 				System.out.println("Creating Dir: org/rf/john/mclauncher/");
 				String temp="";
@@ -272,21 +264,21 @@ public class Main {
 				buf=new byte[1024];
 				//long ReadBytes=0;
 				//DisplayThread.start();
-	            len=InputStream.read(buf);
-	            while(len > 0){
-	            	WriteStream.write(buf,0, len);
-	            	//ReadBytes+=len;
-	            	//int Progress=(int)((ReadBytes/FileSize)*100);
-	            	//DisplayThread.DisplayBar.setValue(Progress);
-	            	//DisplayThread.DisplayBar.setString(Progress+"%");
-	                len=InputStream.read(buf);
-	            }
+				len=InputStream.read(buf);
+				while(len > 0){
+					WriteStream.write(buf,0, len);
+					//ReadBytes+=len;
+					//int Progress=(int)((ReadBytes/FileSize)*100);
+					//DisplayThread.DisplayBar.setValue(Progress);
+					//DisplayThread.DisplayBar.setString(Progress+"%");
+					len=InputStream.read(buf);
+				}
 				InputStream.close();
 				WriteStream.flush();
 				WriteStream.close();
 				//DisplayThread=null;
 				System.out.println("Download Finish!");
-				
+						
 				//--------Start 產生物件-------
 				Class c = cl.loadClass("org.rf.john.mclauncher.Launcher");
 				//Constructor constructor = c.getConstructor(Languages.class);
@@ -315,20 +307,20 @@ public class Main {
 			System.out.println("--*Load Launcher Error*--");
 			e.printStackTrace();
 		}*/
-		}catch(IOException e){
+		/*}catch(IOException e){
 			System.out.println("--*Get RFMCLB_Info Error*--");
 			e.printStackTrace();
-		}
+			System.out.println("--*Use default sitting*--");
+		}*/
 			
-		System.out.println("Launcher Version: #"+RFInfo.Launcher.PrintLauncherVersion());
 		//RFInfo.Launcher=new Launcher(RFInfo.SelectedLang);
-		System.out.println("Default JVM path: "+RFInfo.Launcher.JVMPath); //JVM預設路徑
-		System.out.println("Default Minecraft path: "+RFInfo.Launcher.minecraftDir+"\n"); //minecraft預設路徑
+		System.out.println("Default JVM path: "+Status.Launcher.JVMPath); //JVM預設路徑
+		System.out.println("Default Minecraft path: "+Status.Launcher.minecraftDir+"\n"); //minecraft預設路徑
 		
-		System.out.println("Language: "+RFInfo.SelectedLang.getString("LangName")); //設定語系
+		System.out.println("Language: "+Status.SelectedLang.getString("LangName")); //設定語系
 		
 		//System.out.println("VM Name: "+System.getProperty("java.vm.name"));
-		RFInfo.MainFrameObj = new MainFrame2(); //實體化視窗
+		Status.MainFrameObj = new MainFrame2(); //實體化視窗
 	}
 }/*
 class DownloadLauncherDisplayThread extends Thread{
@@ -355,58 +347,60 @@ class launcheThread extends Thread{ //啟動執行緒
 	@Override
 	public void run(){
 		Thread.currentThread().setName("LaunchThread");
-		TimeCounter.start();
-		RFInfo.Theme.MainProgressBar.setEnabled(true);
-		RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Logining"));
-		RFInfo.Theme.MainProgressBar.setMaximum(1000);
-		RFInfo.Theme.LoginBtn.setEnabled(false);
-		RFInfo.Theme.UserBox.setEnabled(false);
-		RFInfo.Theme.PwdBox.setEnabled(false);
-		RFInfo.Theme.ProfileSelectBox.setEnabled(false);
-		RFInfo.Theme.RememberMe.setEnabled(false);
-		System.out.println("Login!!");
-		//String password = new String(RFInfo.MainFrameObj.PwdBox.getPassword());
-		Save_LoadConfig config = new Save_LoadConfig();
-		if(RFInfo.Theme.RememberMe.isSelected()){
-			config.SaveUser(new String(RFInfo.Theme.PwdBox.getPassword()), RFInfo.Theme.UserBox.getText());
+		if(Status.Theme.UserBox.getText()==""||Status.Theme.PwdBox.getPassword().length==0){
+			new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("LoginError")+": "+Status.SelectedLang.getString("PleaseEnterUserAndPw")+"</span></html>",Status.SelectedLang.getString("LoginError"),JOptionPane.ERROR_MESSAGE);;
 		}else{
-			config.DeleteData();
-		}
-		config.saveConfig(RFInfo.MainFrameObj.JVMPathText.getText(),RFInfo.MainFrameObj.MinecraftPathText.getText(),RFInfo.SelectedLang.LangFile,RFInfo.Launcher.LastVersion);
-		//RFInfo.Launcher=new Launcher(RFInfo.SelectedLang);
-		if(Login.canConnect()){
-			if(Login.connect(RFInfo.Theme.UserBox.getText(),new String(RFInfo.Theme.PwdBox.getPassword()))){
-				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoginSuccess"));
-				RFInfo.Launcher.minecraftDir=RFInfo.MainFrameObj.MinecraftPathText.getText();
-				RFInfo.Launcher.JVMPath=RFInfo.MainFrameObj.JVMPathText.getText();
-				RFInfo.Launcher.LaunchGame(Login.getUser(),RFInfo.Launcher.getInstalledProfiles().get(RFInfo.Theme.ProfileSelectBox.getSelectedIndex()),Login.getSession());
-			}else{ //登入錯誤
-				RFInfo.Theme.LoginBtn.setEnabled(true);
-				RFInfo.Theme.UserBox.setEnabled(true);
-				RFInfo.Theme.PwdBox.setEnabled(true);
-				RFInfo.Theme.ProfileSelectBox.setEnabled(true);
-				RFInfo.Theme.RememberMe.setEnabled(true);
-				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoginError")+"("+Login.Result+")");
-				RFInfo.Theme.MainProgressBar.setEnabled(false);
-				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+RFInfo.SelectedLang.getString("LoginError")+"("+Login.Result+")</span></html>",RFInfo.SelectedLang.getString("LoginError"),JOptionPane.ERROR_MESSAGE);
+			TimeCounter.start();
+			Status.Theme.MainProgressBar.setEnabled(true);
+			Status.Theme.MainProgressBar.setIndeterminate(true);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Logining"));
+			Status.Theme.MainProgressBar.setMaximum(1000);
+			Status.Theme.LoginBtn.setEnabled(false);
+			Status.Theme.UserBox.setEnabled(false);
+			Status.Theme.PwdBox.setEnabled(false);
+			Status.Theme.ProfileSelectBox.setEnabled(false);
+			Status.Theme.RememberMe.setEnabled(false);
+			System.out.println("Login!!");
+			//String password = new String(RFInfo.MainFrameObj.PwdBox.getPassword());
+			Save_LoadConfig config = new Save_LoadConfig();
+			if(Status.Theme.RememberMe.isSelected()){
+				config.SaveUser(new String(Status.Theme.PwdBox.getPassword()), Status.Theme.UserBox.getText());
+			}else{
+				config.DeleteData();
 			}
-		}else{ //離線啟動
-			RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoginSuccess"));
-			RFInfo.Launcher.minecraftDir=RFInfo.MainFrameObj.MinecraftPathText.getText();
-			RFInfo.Launcher.JVMPath=RFInfo.MainFrameObj.JVMPathText.getText();
-			RFInfo.Launcher.LaunchGameOffline(RFInfo.Launcher.getInstalledProfiles().get(RFInfo.Theme.ProfileSelectBox.getSelectedIndex()));
+			config.saveConfig(Status.MainFrameObj.JVMPathText.getText(),Status.MainFrameObj.MinecraftPathText.getText(),Status.SelectedLang.LangFile,Status.Launcher.LastVersion);
+			//RFInfo.Launcher=new Launcher(RFInfo.SelectedLang);
+			if(Login.canConnect()){
+				if(Login.connect(Status.Theme.UserBox.getText(),new String(Status.Theme.PwdBox.getPassword()))){
+					Status.Theme.MainProgressBar.setIndeterminate(false);
+					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoginSuccess"));
+					Status.Launcher.minecraftDir=Status.MainFrameObj.MinecraftPathText.getText();
+					Status.Launcher.JVMPath=Status.MainFrameObj.JVMPathText.getText();
+					Status.Launcher.LaunchGame(Login.getUser(),Status.Launcher.getInstalledProfiles().get(Status.Theme.ProfileSelectBox.getSelectedIndex()),Login.getSession());
+				}else{ //登入錯誤
+					Status.Theme.LoginBtn.setEnabled(true);
+					Status.Theme.UserBox.setEnabled(true);
+					Status.Theme.PwdBox.setEnabled(true);
+					Status.Theme.ProfileSelectBox.setEnabled(true);
+					Status.Theme.RememberMe.setEnabled(true);
+					Status.Theme.MainProgressBar.setIndeterminate(false);
+					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoginError")+"("+Login.Result+")");
+					Status.Theme.MainProgressBar.setEnabled(false);
+					new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("LoginError")+"("+Login.Result+")</span></html>",Status.SelectedLang.getString("LoginError"),JOptionPane.ERROR_MESSAGE);
+				}
+			}else{ //離線啟動
+				Status.Theme.MainProgressBar.setIndeterminate(false);
+				Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoginSuccess"));
+				Status.Launcher.minecraftDir=Status.MainFrameObj.MinecraftPathText.getText();
+				Status.Launcher.JVMPath=Status.MainFrameObj.JVMPathText.getText();
+				Status.Launcher.LaunchGameOffline(Status.Launcher.getInstalledProfiles().get(Status.Theme.ProfileSelectBox.getSelectedIndex()));
+			}
 		}
 	}
 }
 class Save_LoadConfig{ //設定檔操作
 	//private String MinecraftDir="";
 	private String ConfigFile = "."+System.getProperty("file.separator")+"RFMCLB.config";
-	//private File PasswordPath = new File("./lastlogin.pwd");
-	//private File UserPath = new File("./lastlogin");
 	public Save_LoadConfig(){}
 	/**
 	 * 儲存玩家帳號
@@ -438,7 +432,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 		if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return new String(new Base64().decode(json.getString("pwd")));
+			return JSONFunction.Search(json,"user")&&JSONFunction.Search(json,"pwd")?new String(new Base64().decode(json.getString("pwd"))):"";
 		}catch(IOException e){
 			System.out.println("--*Load Password Error*--");
 			e.printStackTrace();
@@ -453,7 +447,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return json.getString("user");
+			return JSONFunction.Search(json,"user")?json.getString("user"):"";
 		}catch(IOException e){
 			System.out.println("--*Load User Error*--");
 			e.printStackTrace();
@@ -563,10 +557,10 @@ class Save_LoadConfig{ //設定檔操作
 			}else{
 				json = new JSONObject();
 			}
-			json.put("JVMPath",RFInfo.Launcher.JVMPath);//JVMPath);
-			json.put("MinecraftPath",RFInfo.Launcher.minecraftDir);//MinecraftPath);
+			json.put("JVMPath",Status.Launcher.JVMPath);//JVMPath);
+			json.put("MinecraftPath",Status.Launcher.minecraftDir);//MinecraftPath);
 			json.put("SelectedLang",SelectedLang);
-			json.put("LastVersion",RFInfo.Launcher.LastVersion);
+			json.put("LastVersion",Status.Launcher.LastVersion);
 			JSONFunction.WriteToFile(json,this.ConfigFile);
 		}catch(IOException e){
 			System.out.println("--*Saving Config Error*--");
@@ -594,13 +588,13 @@ class ThreadJob{
 	}
 	
 	public void DownloadJob(String _jn,DownloadObject Do){
-		RFInfo.Busy=true;
+		Status.Busy=true;
 		this.Type=ThreadJobType.Download;
 		this.JobCount=1;
 		this.FinishedJobs=0;
-		RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading"));
-		RFInfo.Theme.MainProgressBar.setMaximum(0);
+		Status.Theme.MainProgressBar.setIndeterminate(true);
+		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Downloading"));
+		Status.Theme.MainProgressBar.setMaximum(0);
 		//RFInfo.Theme.MainProgressBar.setValue(0);
 		new DownloadThread(Do.DownloadPath,Do.FilePath,this,"Td1").start();
 		while(this.FinishedJobs!=1){
@@ -611,8 +605,8 @@ class ThreadJob{
 				e.printStackTrace();
 			}
 		}
-		RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-		RFInfo.Busy=false;
+		Status.Theme.MainProgressBar.setIndeterminate(false);
+		Status.Busy=false;
 		return;
 	}
 	/**
@@ -622,7 +616,7 @@ class ThreadJob{
 	 */
 	public void DownloadJob(String _JobName,ArrayList<DownloadObject> DownloadObjects){DownloadJob(_JobName,DownloadObjects.size(),DownloadObjects);}
 	public void DownloadJob(String _JobName,int MaxThreads,ArrayList<DownloadObject> DownloadObjects){
-		RFInfo.Busy=true;
+		Status.Busy=true;
 		this.ThisJob=this;
 		final ArrayList<DownloadObject> NeedDownloads=new ArrayList<>();
 		for(int i=0;i<=DownloadObjects.size()-1;i++/*int i=DownloadObjects.size()-1;i>=0;i--*/){
@@ -637,10 +631,10 @@ class ThreadJob{
 		this.JobCount=NeedDownloads.size();
 		this.JobName=_JobName;
 		if(MaxThreads>this.JobCount) MaxThreads=this.JobCount;
-		RFInfo.Theme.MainProgressBar.setMaximum(this.JobCount);
+		Status.Theme.MainProgressBar.setMaximum(this.JobCount);
 		if(this.JobCount>1){
 			System.out.print("\n---Starting job:["+this.JobName+"][Download]");
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+"("+this.FinishedJobs+"/"+this.JobCount+")");
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Downloading")+"("+this.FinishedJobs+"/"+this.JobCount+")");
 			System.out.println(" max thread:"+MaxThreads);
 			
 			final int _MaxThreads=MaxThreads/2;
@@ -707,7 +701,7 @@ class ThreadJob{
 			while(this.FinishedJobs!=this.JobCount){
 				if(o0oDelay==0){
 					String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
-					RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
+					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
 					o0o=(o0o+1)%3;
 				}
 				o0oDelay=(o0oDelay+1)%80;
@@ -720,11 +714,8 @@ class ThreadJob{
 			}
 			System.out.println("---Finished job:["+this.JobName+"][Download]");
 		}
-		RFInfo.Busy=false;
+		Status.Busy=false;
 		return;
-	}
-	private synchronized void RegisterThread(){
-		this.RunningJobs++;
 	}
 	
 	/**
@@ -738,9 +729,9 @@ class ThreadJob{
 		this.Type=ThreadJobType.Extract;
 		this.JobCount=ExtractFile.size();
 		this.JobName=_JobName;
-		RFInfo.Theme.MainProgressBar.setMaximum(this.JobCount);
+		Status.Theme.MainProgressBar.setMaximum(this.JobCount);
 		System.out.print("\n---Starting job:[Extract]");
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib")+"("+this.FinishedJobs+"/"+this.JobCount+")");
+		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib")+"("+this.FinishedJobs+"/"+this.JobCount+")");
 		System.out.println(" max thread:"+this.JobCount);
 		for(int i=0;i<this.JobCount;i++){
 			new ExtractThread(ExtractFile.get(i),TargetDir.get(i),exclude.get(i).toArray(),this).start();
@@ -748,7 +739,7 @@ class ThreadJob{
 		while(this.FinishedJobs!=this.JobCount){
 			if(o0oDelay==0){
 				String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
+				Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
 				o0o=(o0o+1)%3;
 			}
 			o0oDelay=(o0oDelay+1)%80;
@@ -762,20 +753,23 @@ class ThreadJob{
 		System.out.println("---Finished job:["+this.JobName+"][Extract]");
 		return;
 	}
+	private synchronized void RegisterThread(){
+		this.RunningJobs++;
+	}
 	/**
 	 * 單一執行緒結束工作時,所觸發的方法
 	 */
 	public synchronized void FinishJob(){
 		this.FinishedJobs++;
 		this.RunningJobs--;
-		RFInfo.Theme.MainProgressBar.setValue(FinishedJobs); //完成進度
+		Status.Theme.MainProgressBar.setValue(FinishedJobs); //完成進度
 		String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
 		switch(this.Type){
 		case Download:
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
 			break;
 		case Extract:
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
 			break;
 		}
 	}
@@ -819,6 +813,15 @@ class DownloadThread extends Thread{
 		this.ThreadName=_ThreadName;
 		//this.RootDir=rootDir;
 	}
+	public static HttpURLConnection getConnectObj(String targetURL) throws IOException{
+		URL targetUrlObj=new URL(targetURL);
+		URLConnection urlc = targetUrlObj.openConnection();
+		urlc.setConnectTimeout(5000);
+		HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
+		ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
+		ConnectObj.connect();
+		return ConnectObj;
+	}
 	@Override
 	public void run(){
 		Thread.currentThread().setName(this.ThreadName);
@@ -831,10 +834,10 @@ class DownloadThread extends Thread{
 		}
 		System.out.println(this.FileURL+" , "+LibrariesPath);*/
 		
-		if(this.FileURL.lastIndexOf(RFInfo.Launcher.SplitChar)>0){
-			String TargetDir=this.FileURL.substring(0,this.FileURL.lastIndexOf(RFInfo.Launcher.SplitChar));
+		if(this.FileURL.lastIndexOf(Status.Launcher.SplitChar)>0){
+			String TargetDir=this.FileURL.substring(0,this.FileURL.lastIndexOf(Status.Launcher.SplitChar));
 			//System.out.println("Starting make dir: "+TargetDir);
-			RFInfo.Launcher.makeDir(TargetDir);
+			Status.Launcher.makeDir(TargetDir);
 		}
 		System.out.println("Starting download: "+this.FileURL.substring(this.FileURL.lastIndexOf(".minecraft")));
 		try{
@@ -878,7 +881,7 @@ class DownloadThread extends Thread{
 		
 		String end = new String(decompressed, decompressed.length - 4, 4);
 		if (!end.equals("SIGN")){
-			System.out.println("Unpacking failed, signature missing " + end);
+			System.out.println("--*Unpacking failed, signature missing " + end+"*--");
 			return;
 		}
 	
@@ -973,12 +976,13 @@ class ExtractThread extends Thread{
                     inputStream = zipFile.getInputStream(entry); 
 
                     fileOut = new FileOutputStream(file);
-                    byte[] buf=new byte[1024];
+                    fileOut.write(DownloadThread.readFully(inputStream));
+                    /*byte[] buf=new byte[1024];
                     int len=inputStream.read(buf);
                     while(len > 0){ 
                         fileOut.write(buf,0,len);
                         len=inputStream.read(buf);
-                    } 
+                    } */
                     fileOut.close();
 
                     inputStream.close(); 
@@ -1011,18 +1015,15 @@ class Login{
 	public static boolean connect(String user,String pwd){
 		try {
 			System.out.println("Checking user...");
-			URL loginurl = new URL(LoginServer+"?user="+user+"&password="+pwd+"&version="+(RFInfo.RFMCLB_InfoJSON!=null?RFInfo.RFMCLB_InfoJSON.getInt("LoginVersion"):"14"));
-			URLConnection urlc = loginurl.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.connect();
-			InputStreamReader resules = new InputStreamReader(ConnectObj.getInputStream(),"UTF-8");
+			InputStreamReader resules = new InputStreamReader(
+					DownloadThread.getConnectObj(LoginServer+"?user="+user+"&password="+pwd+"&version="+(Status.RFMCLB_InfoJSON!=null?Status.RFMCLB_InfoJSON.getInt("LoginVersion"):"14")).getInputStream(),"UTF-8");
 			int data = resules.read();
 			while(data != -1){
 				Result += (char) data;
 				data = resules.read();
 			}
 		} catch (IOException e) {
+			System.out.println("--*Check user Error*---");
 			e.printStackTrace();
 		}
 		switch(Result){
@@ -1079,18 +1080,15 @@ class Login{
 	 * 檢查連線
 	 */
 	public static void checkConnect(){
-		boolean ReturnValues = false;
 		try {
-			URL loginurl = new URL(LoginServer);
-			URLConnection urlc = loginurl.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.connect();
-			ReturnValues = ((ConnectObj.getResponseCode()==HttpURLConnection.HTTP_OK)?true:false);
+			CanConnect = /*ConnectObj.getResponseCode()==HttpURLConnection.HTTP_OK;*/
+					JSONFunction.CreateFromStream(
+							DownloadThread.getConnectObj("http://status.mojang.com/check?service=login.minecraft.net").getInputStream())
+							.getString("login.minecraft.net").equals("green");
 		} catch (IOException e) {
-			//e.printStackTrace();
+			System.out.println("--*Connect to Internet Error");
+			e.printStackTrace();
 		}
-		CanConnect=ReturnValues;
 	}
 	
 	/**

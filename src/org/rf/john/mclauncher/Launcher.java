@@ -6,50 +6,49 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 
 import javax.swing.JOptionPane;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.rf.john.mclauncher.langs.Languages;
-import org.rf.john.mclauncher.RFInfo;
+import org.rf.john.mclauncher.Status;
 
 
 public class Launcher{
 	public String minecraftDir;
 	public String JVMPath;
 	public String LastVersion="";
-	protected static String SplitChar;
+	public static String SplitChar;
 	protected String LibrariesBaseDownloadURL="https://libraries.minecraft.net/";
 	protected String AssetsIndexBaseDownloadURL="https://s3.amazonaws.com/Minecraft.Download/indexes/";
 	protected String AssetsBaseDownloadURL="http://resources.download.minecraft.net/";
 	
-	public int PrintLauncherVersion(){
-		//System.out.println(this);
-		return 1;
+	@Override
+	public String toString(){
+		return "  ClassName: "+this.getClass().toString().substring(6)+"\n"+
+				"  Version: #1\n"+
+				"  RunMode: "+(Status.RunMode.equals(RunType.JAR)?"JAR":"Debug")+"\n"+
+				"  Online: "+Login.canConnect();
 	}
 	
 	public Launcher(){
 		SplitChar=System.getProperty("file.separator");
-		if(RFInfo.getOS().equals("linux")){
+		if(Status.getOS().equals("linux")){
 			minecraftDir= System.getProperty("user.home")+"/.minecraft/";
 			JVMPath = System.getProperty("java.home")+"/bin/java";
 			
-		}else if(RFInfo.getOS().equals("windows")){
+		}else if(Status.getOS().equals("windows")){
 			minecraftDir= (((System.getenv("APPDATA")!=null)?System.getenv("APPDATA"):System.getProperty("user.home", "."))+"\\.minecraft\\");
 			JVMPath = "\""+System.getProperty("java.home")+"\\bin\\"+(new File("\""+System.getProperty("java.home")+"\\bin\\javaw.exe\"").isFile()?"javaw.exe":"java")+"\"";
-		}else if(RFInfo.getOS().equals("unknow")){
-			//new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Lang.getString("NotSupportSystem")+"</span></html>",Lang.getString("Error"),JOptionPane.ERROR_MESSAGE);
 		}
 	}
 	
@@ -59,16 +58,10 @@ public class Launcher{
 	 */
 	@SuppressWarnings("static-access")
 	public Launcher(Languages Lang){
-		SplitChar=System.getProperty("file.separator");
-		if(RFInfo.getOS().equals("linux")){
-			minecraftDir= System.getProperty("user.home")+"/.minecraft/";
-			JVMPath = System.getProperty("java.home")+"/bin/java";
-			
-		}else if(RFInfo.getOS().equals("windows")){
-			minecraftDir= (((System.getenv("APPDATA")!=null)?System.getenv("APPDATA"):System.getProperty("user.home", "."))+"\\.minecraft\\");
-			JVMPath = "\""+System.getProperty("java.home")+"\\bin\\"+(new File("\""+System.getProperty("java.home")+"\\bin\\javaw.exe\"").isFile()?"javaw.exe":"java")+"\"";
-		}else if(RFInfo.getOS().equals("unknow")){
+		this();
+		if(Status.getOS().equals("unknow")){
 			new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Lang.getString("NotSupportSystem")+"</span></html>",Lang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+			System.exit(1);
 		}
 		
 	}
@@ -81,22 +74,12 @@ public class Launcher{
 	public final ArrayList<String> getInstalledProfiles(){
 		ArrayList<String> FinallyOut = new ArrayList<String>();
 		try {
-			BufferedReader in = new BufferedReader(new FileReader(minecraftDir+"launcher_profiles.json"));
-			String input;
-			String jsonTxt="";
-			do{
-				input = in.readLine();
-				if(input==null){
-					break;
-				}
-				jsonTxt += input;
-			}while(true);
-			JSONObject launcher_profile = new JSONObject(jsonTxt);
+			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			JSONObject InstalledProfiles = launcher_profile.getJSONObject("profiles");
 			for(String OneProfileName:new JSONObject().getNames(InstalledProfiles)){
 				FinallyOut.add(OneProfileName);
 			}
-			in.close();
+			//in.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -110,20 +93,11 @@ public class Launcher{
 	public final String selectedProfile(){
 		String FinallyOut = "";
 		try {
-			BufferedReader in = new BufferedReader(new FileReader(minecraftDir+"launcher_profiles.json"));
-			String input;
-			String jsonTxt="";
-			do{
-				input = in.readLine();
-				if(input==null){
-					break;
-				}
-				jsonTxt += input;
-			}while(true);
-			JSONObject launcher_profile = new JSONObject(jsonTxt);
+			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			FinallyOut = launcher_profile.getString("selectedProfile");
-			in.close();
+			//in.close();
 		} catch (IOException e) {
+			System.out.println("--*Get Selected Profile Error*--");
 			e.printStackTrace();
 		}
 		return FinallyOut;
@@ -133,12 +107,22 @@ public class Launcher{
 	 * 設定Minecraft Last Version
 	 */
 	public final void SetLastVersion(){
-		this.LastVersion=(RFInfo.RFMCLB_InfoJSON!=null?RFInfo.RFMCLB_InfoJSON.getString("MinecraftLastVersion"):"");
+		try {
+			JSONObject VersionsJson=JSONFunction.CreateFromStream(
+					DownloadThread.getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
+			this.LastVersion=(JSONFunction.Search(VersionsJson.getJSONObject("latest"),"release")?
+					VersionsJson.getJSONObject("latest").getString("release"):"");
+		} catch (IOException e) {
+			this.LastVersion="";
+			System.out.println("--*Get Last Version Error!*--");
+			e.printStackTrace();
+		}
+		//this.LastVersion=(RFInfo.RFMCLB_InfoJSON!=null?RFInfo.RFMCLB_InfoJSON.getString("MinecraftLastVersion"):"");
 		if(this.LastVersion.equals("")){ //從設定檔讀取
 			this.LastVersion=new Save_LoadConfig().getLastVersion();
 		}
 		if(this.LastVersion.equals("")){
-			this.LastVersion="1.7.2"; //預設值
+			this.LastVersion="1.7.4"; //預設值
 		}
 		/*try {
 			URL UpdateURL = new URL("http://rf_mclauncher_b.000space.com/RFMCLB_Info.json"); //從網站讀取
@@ -247,15 +231,15 @@ public class Launcher{
 			//-------------讀取必要資訊--------------
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) && !Login.canConnect()){
-				RFInfo.Theme.LoginBtn.setEnabled(true);
-				RFInfo.Theme.UserBox.setEnabled(true);
-				RFInfo.Theme.PwdBox.setEnabled(true);
-				RFInfo.Theme.ProfileSelectBox.setEnabled(true);
-				RFInfo.Theme.RememberMe.setEnabled(true);
-				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("OfflineDownload"));
-				RFInfo.Theme.MainProgressBar.setEnabled(false);
-				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+RFInfo.SelectedLang.getString("OfflineDownload")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+				Status.Theme.LoginBtn.setEnabled(true);
+				Status.Theme.UserBox.setEnabled(true);
+				Status.Theme.PwdBox.setEnabled(true);
+				Status.Theme.ProfileSelectBox.setEnabled(true);
+				Status.Theme.RememberMe.setEnabled(true);
+				Status.Theme.MainProgressBar.setIndeterminate(false);
+				Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("OfflineDownload"));
+				Status.Theme.MainProgressBar.setEnabled(false);
+				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Status.SelectedLang.getString("OfflineDownload")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
 				return;
 			}
 			LaunchCmd += " "+(JSONFunction.Search(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName),"javaArgs")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("javaArgs"):"-Xmx"+(System.getProperty("sun.arch.data.model").equals("32")?"512M":"1G"));
@@ -265,12 +249,43 @@ public class Launcher{
 			//NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
 			MainJar = minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar";
 			Version=LastVersionID;
-			launcher_profile.put("selectedProfile",ProfileName);
-			JSONFunction.WriteToFile(launcher_profile,minecraftDir+"launcher_profiles.json");
+			
 			System.out.println("GameDir="+GameDir);
 			System.out.println("PlayerDisplayName="+PlayerName);
 			System.out.println("Session=******");
 			System.out.println("BaseVersion="+Version);
+			if(!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json").isFile()||  //如果Profile or jar不存在
+					!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar").isFile()){
+				Status.Theme.MainProgressBar.setIndeterminate(true);
+				HashSet<String> Versions=new HashSet<>();
+				JSONObject VersionsJson=JSONFunction.CreateFromStream(
+						DownloadThread.getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
+				for(int i=0;i<=VersionsJson.getJSONArray("versions").length()-1;i++){
+					Versions.add(VersionsJson.getJSONArray("versions").getJSONObject(i).getString("id"));
+				}
+				if(Versions.contains(LastVersionID)){
+					ArrayList<DownloadObject> LastVersionIdFiles=new ArrayList<>();
+					LastVersionIdFiles.add(new DownloadObject("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".json",
+																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json"));
+					LastVersionIdFiles.add(new DownloadObject("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".jar",
+																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar"));
+					new ThreadJob().DownloadJob("Profile and Jar",LastVersionIdFiles);
+				}else{
+					Status.Theme.LoginBtn.setEnabled(true);
+					Status.Theme.UserBox.setEnabled(true);
+					Status.Theme.PwdBox.setEnabled(true);
+					Status.Theme.ProfileSelectBox.setEnabled(true);
+					Status.Theme.RememberMe.setEnabled(true);
+					Status.Theme.MainProgressBar.setIndeterminate(false);
+					Status.Theme.MainProgressBar.setValue(0);
+					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("CantDownload"));
+					Status.Theme.MainProgressBar.setEnabled(false);
+					new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Status.SelectedLang.getString("CantDownload")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+					return;
+				}
+			}
+			launcher_profile.put("selectedProfile",ProfileName);
+			JSONFunction.WriteToFile(launcher_profile,minecraftDir+"launcher_profiles.json");
 			JSONObject LaunchFile = JSONFunction.CreateFromFile(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json");
 			MainClass = LaunchFile.getString("mainClass");
 			LaunchArgs = LaunchFile.getString("minecraftArguments");
@@ -280,157 +295,151 @@ public class Launcher{
 			
 			//---------------------刪除,重下載程式庫---------------
 			
-			String NativesTail="-"+(RFInfo.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
-			
-			//if(NeedDownload){
-				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-				if(!new File(LibrariesDir).isDirectory()) new File(LibrariesDir).mkdir();
-				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-				System.out.println("Downloading libraries");
-				RFInfo.Theme.MainProgressBar.setMaximum(Libraries.length());
-				RFInfo.Theme.MainProgressBar.setValue(0);
-				ArrayList<DownloadObject> DownloadJobs=new ArrayList<>();
-				for(int i=0;i<Libraries.length();i++){
-					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-					//LibrariesPath=LibrariesPath.replace(":",".");
-					//LibrariesPath=LibrariesPath.substring(0,LibrariesPath.lastIndexOf(".")-1).replace(".",SplitChar);
-					String[] SplitedPath = LibrariesPath.split(":");
-					LibrariesPath = SplitedPath[0].replace(".", SplitChar);
-					for(int j=1;j<SplitedPath.length;j++){
-						LibrariesPath += (SplitChar+SplitedPath[j]);
-					}
-					//String[] SplitedPath = LibrariesPath.split(SplitChar);
-					String FileURL="";
-					//String downloadURL="";
-					FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
-					FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
-					FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
-					//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
-					
-					if(CheckLibPermission(Libraries.getJSONObject(i))){
-						System.out.println("-- "+FileURL.replace("-universal",""));
-						DownloadObject OneLibrary = new DownloadObject();
-						//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
-						OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/")+(JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
-						OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL.replace("-universal","");
-						DownloadJobs.add(OneLibrary);
-						//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
-						}else{
-						System.out.println("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
-					}
+			String NativesTail="-"+(Status.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
+		
+			Status.Theme.MainProgressBar.setIndeterminate(true);
+			if(!new File(LibrariesDir).isDirectory()) new File(LibrariesDir).mkdir();
+			Status.Theme.MainProgressBar.setIndeterminate(false);
+			System.out.println("Downloading libraries");
+			Status.Theme.MainProgressBar.setMaximum(Libraries.length());
+			Status.Theme.MainProgressBar.setValue(0);
+			ArrayList<DownloadObject> DownloadJobs=new ArrayList<>();
+			for(int i=0;i<Libraries.length();i++){
+				String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
+				//LibrariesPath=LibrariesPath.replace(":",".");
+				//LibrariesPath=LibrariesPath.substring(0,LibrariesPath.lastIndexOf(".")-1).replace(".",SplitChar);
+				String[] SplitedPath = LibrariesPath.split(":");
+				LibrariesPath = SplitedPath[0].replace(".", SplitChar);
+				for(int j=1;j<SplitedPath.length;j++){
+					LibrariesPath += (SplitChar+SplitedPath[j]);
 				}
-				new ThreadJob().DownloadJob("Libraries",DownloadJobs);
-			//}
+				//String[] SplitedPath = LibrariesPath.split(SplitChar);
+				String FileURL="";
+				//String downloadURL="";
+				FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
+				FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
+				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
+				//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
+				
+				if(CheckLibPermission(Libraries.getJSONObject(i))){
+					System.out.println("-- "+FileURL.replace("-universal",""));
+					DownloadObject OneLibrary = new DownloadObject();
+					//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
+					OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/")+(JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
+					OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL.replace("-universal","");
+					DownloadJobs.add(OneLibrary);
+					//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
+					}else{
+					System.out.println("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
+				}
+			}
+			new ThreadJob().DownloadJob("Libraries",DownloadJobs);
 			
 			//------------------下載assets-------------------
 			
 			System.out.print("\n");
-			RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingAssets"));
-			try{
-				new ThreadJob().DownloadJob("AssetsIndex",new DownloadObject(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
-				RFInfo.Theme.MainProgressBar.setValue(0);
-				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-				RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingAssets"));
-				JSONObject AssetsIndexJSON = JSONFunction.CreateFromFile(this.minecraftDir+SplitChar+"assets"+SplitChar+"indexes"+SplitChar+AssetsIndex+".json");
-				boolean Virtual = JSONFunction.Search(AssetsIndexJSON,"virtual")&&AssetsIndexJSON.getBoolean("virtual");
-				HashMap<DownloadObject,Integer> DownloadAssets = new HashMap<>();
-				for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){				
+			Status.Theme.MainProgressBar.setIndeterminate(false);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
+			
+			new ThreadJob().DownloadJob("AssetsIndex",new DownloadObject(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
+			Status.Theme.MainProgressBar.setValue(0);
+			Status.Theme.MainProgressBar.setIndeterminate(true);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
+			JSONObject AssetsIndexJSON = JSONFunction.CreateFromFile(this.minecraftDir+SplitChar+"assets"+SplitChar+"indexes"+SplitChar+AssetsIndex+".json");
+			boolean Virtual = JSONFunction.Search(AssetsIndexJSON,"virtual")&&AssetsIndexJSON.getBoolean("virtual");
+			HashMap<DownloadObject,Integer> DownloadAssets = new HashMap<>();
+			for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){				
+				String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
+				
+				//Objects->Virtual
+				if(Virtual&&new File(AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash).isFile()){
+					String OldFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+					String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
+					if(!new File(NewFile).isFile()){
+						if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+						BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+						new File(NewFile).createNewFile();
+						BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+						WriteStream.write(DownloadThread.readFully(ReadStream));
+						WriteStream.flush();
+						ReadStream.close();
+						WriteStream.close();
+					}
+				}
+				/*//Virtual->Objects
+				if(!Virtual&&new File(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName).isFile()){
+					String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
+					String NewFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+					if(!new File(NewFile).isFile()){
+						if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+						BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+						new File(NewFile).createNewFile();
+						BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+						WriteStream.write(DownloadThread.readFully(ReadStream));
+						WriteStream.flush();
+						ReadStream.close();
+						WriteStream.close();
+					}
+				}*/
+				
+				DownloadObject OneDownloadAsset=new DownloadObject();
+				OneDownloadAsset.DownloadPath=(this.AssetsBaseDownloadURL+Hash.substring(0,2)+SplitChar+Hash).replace(SplitChar,"/");
+				OneDownloadAsset.FilePath=
+						(Virtual?AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:AssetsDir+SplitChar+"objects"+SplitChar)+
+						(Virtual?OneAssetName.replace("/",SplitChar):Hash.substring(0,2)+SplitChar+Hash);
+				DownloadAssets.put(OneDownloadAsset,AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getInt("size"));
+			}
+			Status.Theme.MainProgressBar.setIndeterminate(false);
+			
+			//----------按檔案大小排序檔案-------------
+			ArrayList<Entry<DownloadObject, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
+			Collections.sort(Sorter,new Comparator<Entry<DownloadObject,Integer>>(){
+				@Override
+				public int compare(Entry<DownloadObject, Integer> o1,Entry<DownloadObject, Integer> o2){
+					return (o1.getValue()-o2.getValue());
+				}	
+			});
+			
+			ArrayList<DownloadObject> SortedAssets = new ArrayList<>();
+			for(Entry<DownloadObject,Integer> OneDownloadObject:Sorter){
+				SortedAssets.add(OneDownloadObject.getKey());
+			}
+			//-------------END 排序-----------------
+			
+			new ThreadJob().DownloadJob("Assets",20,SortedAssets);
+			Status.Theme.MainProgressBar.setIndeterminate(true);
+			AssetsDir+=(Virtual?SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:"");
+			
+			/*if(Virtual){
+				makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar);
+				for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){
 					String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
 					
-					//Objects->Virtual
-					if(Virtual&&new File(AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash).isFile()){
-						String OldFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
-						String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
-						if(!new File(NewFile).isFile()){
-							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
-							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
-							new File(NewFile).createNewFile();
-							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
-							WriteStream.write(DownloadThread.readFully(ReadStream));
-							WriteStream.flush();
-							ReadStream.close();
-							WriteStream.close();
-						}
+					String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
+					String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.replace("/",SplitChar);
+					if(!new File(NewFile).isFile()){
+						if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
+						BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
+						new File(NewFile).createNewFile();
+						BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
+						WriteStream.write(DownloadThread.readFully(ReadStream));
+						WriteStream.flush();
+						ReadStream.close();
+						WriteStream.close();
+						//new File(OldFile).delete();
 					}
-					/*//Virtual->Objects
-					if(!Virtual&&new File(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName).isFile()){
-						String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName;
-						String NewFile=AssetsDir+SplitChar+"objects"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
-						if(!new File(NewFile).isFile()){
-							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
-							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
-							new File(NewFile).createNewFile();
-							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
-							WriteStream.write(DownloadThread.readFully(ReadStream));
-							WriteStream.flush();
-							ReadStream.close();
-							WriteStream.close();
-						}
-					}*/
-					
-					DownloadObject OneDownloadAsset=new DownloadObject();
-					OneDownloadAsset.DownloadPath=(this.AssetsBaseDownloadURL+Hash.substring(0,2)+SplitChar+Hash).replace(SplitChar,"/");
-					OneDownloadAsset.FilePath=
-							(Virtual?AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:AssetsDir+SplitChar+"objects"+SplitChar)+
-							(Virtual?OneAssetName.replace("/",SplitChar):Hash.substring(0,2)+SplitChar+Hash);
-					DownloadAssets.put(OneDownloadAsset,AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getInt("size"));
 				}
-				RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-				
-				//----------按檔案大小排序檔案-------------
-				ArrayList<Entry<DownloadObject, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
-				Collections.sort(Sorter,new Comparator<Entry<DownloadObject,Integer>>(){
-					@Override
-					public int compare(Entry<DownloadObject, Integer> o1,Entry<DownloadObject, Integer> o2){
-						return (o1.getValue()-o2.getValue());
-					}	
-				});
-				
-				ArrayList<DownloadObject> SortedAssets = new ArrayList<>();
-				for(Entry<DownloadObject,Integer> OneDownloadObject:Sorter){
-					SortedAssets.add(OneDownloadObject.getKey());
-				}
-				//-------------END 排序-----------------
-				
-				new ThreadJob().DownloadJob("Assets",20,SortedAssets);
-				RFInfo.Theme.MainProgressBar.setIndeterminate(true);
-				AssetsDir+=(Virtual?SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:"");
-				
-				/*if(Virtual){
-					makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar);
-					for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){
-						String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
-						
-						String OldFile=AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar+Hash.substring(0,2)+SplitChar+Hash;
-						String NewFile=AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.replace("/",SplitChar);
-						if(!new File(NewFile).isFile()){
-							if(OneAssetName.lastIndexOf("/")>0) makeDir(AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar+OneAssetName.substring(0,OneAssetName.lastIndexOf("/")).replace("/",SplitChar));
-							BufferedInputStream ReadStream = new BufferedInputStream(new FileInputStream(OldFile));
-							new File(NewFile).createNewFile();
-							BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream(NewFile));
-							WriteStream.write(DownloadThread.readFully(ReadStream));
-							WriteStream.flush();
-							ReadStream.close();
-							WriteStream.close();
-							//new File(OldFile).delete();
-						}
-					}
-					//deleteDir(new File(AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar));
-					AssetsDir+=SplitChar+"virtual"+SplitChar+AssetsIndex;
-				}*/
-			}catch(IOException e){
-				System.out.println("--*DownloadAssetsError*--");
-				e.printStackTrace();
-			}
-			RFInfo.Theme.MainProgressBar.setIndeterminate(false);
+				//deleteDir(new File(AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar));
+				AssetsDir+=SplitChar+"virtual"+SplitChar+AssetsIndex;
+			}*/
+			Status.Theme.MainProgressBar.setIndeterminate(false);
 			//------------------解壓,載入程式庫----------------
 			File ExtractDir = new File(NativesDir+SplitChar);
-			RFInfo.Theme.MainProgressBar.setValue(0);
-			RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LoadingLib"));
-			RFInfo.Theme.MainProgressBar.setIndeterminate(true);
+			Status.Theme.MainProgressBar.setValue(0);
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib"));
+			Status.Theme.MainProgressBar.setIndeterminate(true);
 			if(!ExtractDir.exists() || !ExtractDir.isDirectory()){
-				makeDir(NativesDir+SplitChar+(RFInfo.getOS().equals("windows")?"\\":""));
+				makeDir(NativesDir+SplitChar+(Status.getOS().equals("windows")?"\\":""));
 				System.out.println("-Natives dir was created!");
 			}
 			LaunchCmd += " -Djava.library.path="+NativesDir;
@@ -438,7 +447,7 @@ public class Launcher{
 			ArrayList<String> extractFiles = new ArrayList<String>();
 			ArrayList<String> extractTargetDir = new ArrayList<String>();
 			ArrayList<ArrayList<String>> extractExclude = new ArrayList<ArrayList<String>>();
-			RFInfo.Theme.MainProgressBar.setMaximum(Libraries.length());
+			Status.Theme.MainProgressBar.setMaximum(Libraries.length());
 			System.out.println("\n----------");
 			for(int i=0;i<Libraries.length();i++){
 				if(CheckLibPermission(Libraries.getJSONObject(i))){
@@ -475,9 +484,9 @@ public class Launcher{
 			e.printStackTrace();
 		}
 		
-		RFInfo.Theme.MainProgressBar.setString(RFInfo.SelectedLang.getString("LaunchingGame"));
-		RFInfo.Theme.MainProgressBar.setIndeterminate(false);
-		RFInfo.Theme.MainProgressBar.setEnabled(false);
+		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LaunchingGame"));
+		Status.Theme.MainProgressBar.setIndeterminate(false);
+		Status.Theme.MainProgressBar.setEnabled(false);
 		LaunchArgs=LaunchArgs.replace("${auth_player_name}",PlayerName);
 		LaunchArgs=LaunchArgs.replace("${auth_uuid}",session.split(":")[2]);
 		LaunchArgs=LaunchArgs.replace("${auth_access_token}",session.split(":")[1]);
@@ -495,7 +504,7 @@ public class Launcher{
 			System.out.println("--Launch Finished!");
 			TimeCounter.stop();
 			TimeCounter.count();
-			RFInfo.MainFrameObj.setVisible(false);
+			Status.MainFrameObj.setVisible(false);
 			Process LaunchProcess = Runtime.getRuntime().exec(LaunchCmd);
 			BufferedReader p_in = new BufferedReader(new InputStreamReader(LaunchProcess.getInputStream(),"UTF-8"));
             String line="";
@@ -508,16 +517,16 @@ public class Launcher{
             while((line = p_in.readLine()) != null){
             	System.out.println("【Minecraft Console】> "+line);
             	if(line.matches("^\\W{3,}Game crashed! Crash report saved to: \\W{3,}.*")){
-            		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+RFInfo.SelectedLang.getString("GameError")+"</span></html>",RFInfo.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+            		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("GameError")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
             		break;
             	}
             }
             p_in.close();
-            if(!RFInfo.TestArguments("--NoDelNatives")){
+            if(!Status.TestArguments("--NoDelNatives")){
             	deleteDir(new File(NativesDir+SplitChar));
             	System.out.println("Deleted Natives Dir!");
             }
-            RFInfo.MainFrameObj.dispose(); //結束程式
+            Status.MainFrameObj.dispose(); //結束程式
             System.exit(0);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -575,7 +584,7 @@ public class Launcher{
 				JSONObject Action=Rules.getJSONObject(i);
 				if(Action.getString("action").equals("allow")){ //allow
 					if(JSONFunction.Search(Action,"os")){
-						if(Action.getJSONObject("os").getString("name").equals(RFInfo.getOS())){
+						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
 							FinalAction=true;
 						}
 					}else{
@@ -583,7 +592,7 @@ public class Launcher{
 					}
 				}else{ //disallow
 					if(JSONFunction.Search(Action,"os")){
-						if(Action.getJSONObject("os").getString("name").equals(RFInfo.getOS())){
+						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
 							FinalAction=false;
 						}
 					}else{

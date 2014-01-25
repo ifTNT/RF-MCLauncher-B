@@ -1,12 +1,12 @@
 package org.rf.john.mclauncher.Themes;
 
-import org.rf.john.mclauncher.RFInfo;
+import org.rf.john.mclauncher.Status;
 
 public class ThemeSelector {
 	public void SelectTheme(String SelectedTheme){
 		Theme NewTheme = new Theme();
-		RFInfo.Theme = NewTheme;
-		RFInfo.MainFrameObj.setSize(NewTheme.FrameSize[0],NewTheme.FrameSize[1]);
+		Status.Theme = NewTheme;
+		Status.MainFrameObj.setSize(NewTheme.FrameSize[0],NewTheme.FrameSize[1]);
 		
 	}
 	public void getInstalledTheme(){

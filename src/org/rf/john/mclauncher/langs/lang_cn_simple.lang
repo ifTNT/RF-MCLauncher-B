@@ -6,7 +6,7 @@
 	"Theme": "布景主题",
 	"AboutText1": "关于RF-MCLauncher-B:",
 	"AboutText2": "RF-MCLauncher是一个台灣人设计的非官方的Minecraft启动器",
-	"AboutText3": "Java版程式设计 by曙@RasFun",
+	"AboutText3": "B版程式设计 by曙@RasFun",
 	"Author": "作者",
 	"ThemeName": "布景名称",
 	"Description": "介绍",
@@ -27,6 +27,7 @@
 	"Error": "错误",
 	"Logining":"登入中...",
 	"LoginError":"登入错误",
+	"PleaseEnterUserAndPw":"请输入帐号或密码",
 	"LoginSuccess":"登入成功!",
 	"Downloading":"正在下载,先休息一下...",
 	"DownloadFinish":"下载完成!",
@@ -35,5 +36,6 @@
 	"LaunchingGame":"启动游戏中...",
 	"GameError":"游戏启动错误详情请看launche.log",
 	"LaunchOffline":"离线启动",
-	"OfflineDownload":"离线时不能下载档案"
+	"OfflineDownload":"离线时不能下载档案",
+	"CantDownload":"找不到档案可下载"
 }

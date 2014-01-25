@@ -5,8 +5,8 @@
 	"About": "About",
 	"Theme": "Theme",
 	"AboutText1": "About RF-MCLauncher-B:",
-	"AboutText2": "RF-MCLauncher is a unofficial Minecraft launcher",
-	"AboutText3": "Java version made by曙@RasFun",
+	"AboutText2": "RF-MCLauncher is a open source and unofficial Minecraft launcher",
+	"AboutText3": "version B made by曙@RasFun",
 	"Author": "Author",
 	"ThemeName": "ThemeName",
 	"Description": "Description",
@@ -27,6 +27,7 @@
 	"CloseWindowOnBusy": "Launcher is downloading files<br>they may be lost if you close this program<br>Are you sure to close?",
 	"Logining":"Logining...",
 	"LoginError":"Login Error",
+	"PleaseEnterUserAndPw":"Please enter user or password",
 	"LoginSuccess":"Login Success!",
 	"Downloading":"Downloading,take a break...",
 	"DownloadFinish":"Download Finish!",
@@ -35,5 +36,6 @@
 	"LaunchingGame":"Launching Game...",
 	"GameError":"Launche Game Error Please Check \"launche.log\"",
 	"LaunchOffline":"Play Offline",
-	"OfflineDownload":"Can't download libraries offline!"
+	"OfflineDownload":"Can't download libraries offline!",
+	"CantDownload":"Couldn't Download File!"
 }

@@ -33,7 +33,7 @@ public class LaunchPanel extends JPanel {
 	public JTextField UserBox=new JTextField(); //帳號輸入框
 	public JPasswordField PwdBox=new JPasswordField(); //密碼輸入框
 	public JCheckBox RememberMe=new JCheckBox(); //記住我
-	public JComboBox<?> ProfileSelectBox=new JComboBox(); //啟動檔選擇
+	public JComboBox<String> ProfileSelectBox=new JComboBox<>(); //啟動檔選擇
 	public JLabel UserText=new JLabel();  //帳號輸入框說明文字
 	public JLabel PwdText=new JLabel();   //密碼輸入框說明文字
 	public JLabel ProfileText=new JLabel();  //啟動檔選擇說明文字
@@ -54,17 +54,17 @@ public class LaunchPanel extends JPanel {
 		this.UserBox = new JTextField(User,1);
 		this.PwdBox = new JPasswordField(Pwd,1);
 		String ProfilesName[]=new String[Profiles.size()];
-		System.out.println("Loaded "+RFInfo.Launcher.getInstalledProfiles().size()+" profiles from launcher_profiles.json");
+		System.out.println("Loaded "+Status.Launcher.getInstalledProfiles().size()+" profiles from launcher_profiles.json");
 		if(!TextStyles.containsKey("ProfileFormat")){System.out.println("--*Theme Error:Undefined TextStyle*--");return;}
 		for(int i=0;i < Profiles.size();i++){
 			ProfilesName[i] = TextStyles.get("ProfileFormat").replace("${TEXT}",Profiles.get(i));
 		}
-		this.ProfileSelectBox = new JComboBox(ProfilesName);
-		this.ProfileSelectBox.setSelectedItem(TextStyles.get("ProfileFormat").replace("${TEXT}",RFInfo.Launcher.selectedProfile()));
+		this.ProfileSelectBox = new JComboBox<>(ProfilesName);
+		this.ProfileSelectBox.setSelectedItem(TextStyles.get("ProfileFormat").replace("${TEXT}",Status.Launcher.selectedProfile()));
 		this.RememberMe.setSelected(rememberme);
 		this.ProfileSelectBox.setEnabled(launcheOffline);
 		this.MainProgressBar.setStringPainted(true);
-		this.MainProgressBar.setString(RFInfo.SelectedLang.getString("MainProgressBarIdleText"));
+		this.MainProgressBar.setString(Status.SelectedLang.getString("MainProgressBarIdleText"));
 		this.MainProgressBar.setEnabled(false);
 		this.LoginBtn.addActionListener(new ActionListener(){ //登入按鈕監聽
 			@Override
@@ -92,14 +92,14 @@ public class LaunchPanel extends JPanel {
 			TextStyles.containsKey("ProfileFormat"))
 		){System.out.println("--*Theme Error:Undefined TestStyle*--");return;}
 		
-		UserText.setText(TextStyles.get("UserText").replace("${TEXT}",RFInfo.SelectedLang.getString("UserText")));
-		PwdText.setText(TextStyles.get("PwdText").replace("${TEXT}",RFInfo.SelectedLang.getString("PwdText")));
-		ProfileText.setText(TextStyles.get("ProfilesText").replace("${TEXT}",RFInfo.SelectedLang.getString("VersionText")));
-		RememberMe.setText(TextStyles.get("RememberMe").replace("${TEXT}",RFInfo.SelectedLang.getString("RememberMe")));
-		LoginBtn.setText(TextStyles.get("LoginBtn").replace("${TEXT}",(Login.canConnect()?RFInfo.SelectedLang.getString("LoginBtn"):RFInfo.SelectedLang.getString("LaunchOffline"))));
-		MainProgressBar.setString(RFInfo.SelectedLang.getString("MainProgressBarIdleText"));
+		UserText.setText(TextStyles.get("UserText").replace("${TEXT}",Status.SelectedLang.getString("UserText")));
+		PwdText.setText(TextStyles.get("PwdText").replace("${TEXT}",Status.SelectedLang.getString("PwdText")));
+		ProfileText.setText(TextStyles.get("ProfilesText").replace("${TEXT}",Status.SelectedLang.getString("VersionText")));
+		RememberMe.setText(TextStyles.get("RememberMe").replace("${TEXT}",Status.SelectedLang.getString("RememberMe")));
+		LoginBtn.setText(TextStyles.get("LoginBtn").replace("${TEXT}",(Login.canConnect()?Status.SelectedLang.getString("LoginBtn"):Status.SelectedLang.getString("LaunchOffline"))));
+		MainProgressBar.setString(Status.SelectedLang.getString("MainProgressBarIdleText"));
 		
-		if(RFInfo.getOS().equals("windows")){
+		if(Status.getOS().equals("windows")){
 			String FontList[] = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
 			Arrays.sort(FontList);
 			if(Arrays.binarySearch(FontList,"微軟正黑體")>-1){
@@ -124,13 +124,13 @@ public class LaunchPanel extends JPanel {
     private boolean DrawImage=true;
     private Color color=Color.WHITE;
     
-    @SuppressWarnings("static-access")
 	public void _SetBackground(String imgurl,int width,int height) {
         try {
-        	if(new RFInfo().RunMode.equals(RunType.Debug)){
+        	if(Status.RunMode.equals(RunType.Debug)){
         		image = ImageIO.read(new File(imgurl));  //Debug
         	}else{
-        		image = ImageIO.read(this.getClass().getClassLoader().getSystemResourceAsStream(imgurl));  //***JAR***
+        		this.getClass().getClassLoader();
+				image = ImageIO.read(ClassLoader.getSystemResourceAsStream(imgurl));  //***JAR***
         	}
             imgwidth = width;
             imgheight = height;
@@ -142,12 +142,14 @@ public class LaunchPanel extends JPanel {
             ex.printStackTrace();
         }
     }
+    //@SuppressWarnings("static-access")
     public void _SetBackground(String imgurl,int StartX,int StartY,int width,int height) {
         try {
-        	if(new RFInfo().RunMode.equals(RunType.Debug)){
+        	if(Status.RunMode.equals(RunType.Debug)){
         		image = ImageIO.read(new File(imgurl));  //Debug
         	}else{
-        		image = ImageIO.read(this.getClass().getClassLoader().getSystemResourceAsStream(imgurl));  //***JAR***
+        		this.getClass().getClassLoader();
+        		image = ImageIO.read(ClassLoader.getSystemResourceAsStream(imgurl));  //***JAR***
         	}
             imgwidth = width;
             imgheight = height;

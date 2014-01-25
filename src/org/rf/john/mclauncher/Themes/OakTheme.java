@@ -11,7 +11,7 @@ public class OakTheme extends Theme{
 		this.Description="RF-MCLauncher-B的預設佈景";
 		//-----------
 		SetFrameSize(300,400);
-		SetBackground("images/OakBG.png",5,2,280,300);
+		SetBackground("images/OakBG.png",10,2,280,300);
 		//-----------
 		TextStyles.put("UserText","<html><span style=\"font-size: 15px;color: rgb(100%,100%,100%);font-weight:bold;\">${TEXT}</span></html>");
 		TextStyles.put("PwdText","<html><span style=\"font-size: 15px;color: rgb(100%,100%,100%);font-weight:bold;\">${TEXT}</span></html>");

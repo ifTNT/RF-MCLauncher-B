@@ -5,9 +5,12 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,19 +24,23 @@ public class JSONFunction{
 	 * @throws IOException
 	 */
 	public static JSONObject CreateFromFile(String File) throws IOException{
-		BufferedReader in;
-		in = new BufferedReader(new FileReader(URLDecoder.decode(File,"UTF8")));
+		return CreateFromBufferedReader(new BufferedReader(new FileReader(URLDecoder.decode(File,"UTF8"))));
+	}
+	public static JSONObject CreateFromStream(InputStream stream) throws IOException{
+		return CreateFromBufferedReader(new BufferedReader(new InputStreamReader(stream,"UTF-8")));
+	}
+	private static JSONObject CreateFromBufferedReader(BufferedReader bufReader) throws IOException{
 		String input;
 		String jsonTxt="";
 		do{
-			input = in.readLine();
+			input = bufReader.readLine();
 			if(input==null){
 				break;
 			}
 			jsonTxt += input;
 		}while(true);
-		in.close();
-		return new JSONObject(jsonTxt);
+		bufReader.close();
+		return (!jsonTxt.equals(""))?new JSONObject(jsonTxt):null;
 	}
 	
 	/**
@@ -70,22 +77,23 @@ public class JSONFunction{
 	 */
 	@SuppressWarnings("static-access")
 	public static boolean Search(JSONObject input,String key){
-		String[] SortedArray = new JSONObject().getNames(input);
-		Arrays.sort(SortedArray);
-		return ((Arrays.binarySearch(SortedArray,key) > -1)?true:false);
+		//String[] SortedArray = new JSONObject().getNames(input);
+		//Arrays.sort(SortedArray);
+		//return ((Arrays.binarySearch(SortedArray,key) > -1)?true:false);
+		return new HashSet<String>(Arrays.asList(new JSONObject().getNames(input))).contains(key);
 	}
 	
-	/**
+	/*
 	 * 取得JSONArray的第key項
 	 * @param in
 	 * @param key
 	 * @return
 	 */
-	public static JSONObject getItem(JSONArray in,int key){
+	/*public static JSONObject getItem(JSONArray in,int key){
 		if(key>=in.length()||key<0)
 			return null;
 		return in.getJSONObject(key);
-	}
+	}*/
 	
 	
 	/*@SuppressWarnings({ "static-access", "unused"})

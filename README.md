@@ -49,6 +49,8 @@ RF-MCLauncher-B
     -清理部份無用的原始碼
     *改用ant作為jar佈署工具(之前是用Eclipsc)
     +下載檔案中關閉視窗時 會詢問
+    * 精簡程式碼
+    +遊戲主程式不存在時,會自動下載
 
 ##參數
 - --NoDelNatives : 不要刪除Natives資料夾(除錯用)
@@ -61,6 +63,7 @@ RF-MCLauncher-B
 - 自動優化啟動參數
 - 可編輯Profile
 - 支援XP,Mac(OSX)
+- 可完全取代官方啟動器
 
 ##Bugs
 - RFBug#000 啟動SessionID錯誤(1.0-rc2已解決)

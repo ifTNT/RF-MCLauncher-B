@@ -7,7 +7,7 @@ import org.rf.john.mclauncher.langs.Languages;
 import org.rf.john.mclauncher.Themes.Theme;
 
 
-public class RFInfo{
+public class Status{
 	public static String Version="v2.0a"; //RF-MCLauncher-B的版本
 	public static RunType RunMode=RunType.JAR; //運作模式(Debug/JAR)
 	
