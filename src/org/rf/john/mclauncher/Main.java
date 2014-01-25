@@ -1025,6 +1025,8 @@ class Login{
 		} catch (IOException e) {
 			System.out.println("--*Check user Error*---");
 			e.printStackTrace();
+			Result="Server Error";
+			return false;
 		}
 		switch(Result){
 			case "Bad login":

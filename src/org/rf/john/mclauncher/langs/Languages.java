@@ -126,6 +126,7 @@ public class Languages{
 		} catch (IOException e) {
 			System.out.println("--*Lang load Error!!*--");
 			e.printStackTrace();
+			System.out.println("--*Error: Maybe RunMode is wrong!*--");
 			System.out.println("Exit with status 1");
 			System.exit(1);
 		}
