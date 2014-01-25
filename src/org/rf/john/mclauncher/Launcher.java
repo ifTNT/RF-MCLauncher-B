@@ -8,6 +8,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -256,7 +258,7 @@ public class Launcher{
 			System.out.println("BaseVersion="+Version);
 			if(!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json").isFile()||  //如果Profile or jar不存在
 					!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar").isFile()){
-				Status.Theme.MainProgressBar.setIndeterminate(true);
+				//Status.Theme.MainProgressBar.setIndeterminate(true);
 				HashSet<String> Versions=new HashSet<>();
 				JSONObject VersionsJson=JSONFunction.CreateFromStream(
 						DownloadThread.getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
@@ -295,7 +297,7 @@ public class Launcher{
 			
 			//---------------------刪除,重下載程式庫---------------
 			
-			String NativesTail="-"+(Status.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
+			//String NativesTail="-"+(Status.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
 		
 			Status.Theme.MainProgressBar.setIndeterminate(true);
 			if(!new File(LibrariesDir).isDirectory()) new File(LibrariesDir).mkdir();
@@ -316,8 +318,12 @@ public class Launcher{
 				//String[] SplitedPath = LibrariesPath.split(SplitChar);
 				String FileURL="";
 				//String downloadURL="";
+				//NativesTail="-"+Status.getOS()
+				String NativesTail=(JSONFunction.Search(Libraries.getJSONObject(i),"natives")&&
+									JSONFunction.Search(Libraries.getJSONObject(i).getJSONObject("natives"),Status.getOS())?
+											"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(Status.getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
 				FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
-				FileURL += (JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"");
+				FileURL += NativesTail;
 				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
 				//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
 				
@@ -442,7 +448,7 @@ public class Launcher{
 				makeDir(NativesDir+SplitChar+(Status.getOS().equals("windows")?"\\":""));
 				System.out.println("-Natives dir was created!");
 			}
-			LaunchCmd += " -Djava.library.path="+NativesDir;
+			LaunchCmd += " -Djava.library.path="+(NativesDir.indexOf(' ')>0?"\""+NativesDir+"\"":NativesDir);
 			LaunchCmd += " -cp ";
 			ArrayList<String> extractFiles = new ArrayList<String>();
 			ArrayList<String> extractTargetDir = new ArrayList<String>();
@@ -459,11 +465,14 @@ public class Launcher{
 					}
 					//String[] SortedArray = new JSONObject().getNames(Libraries.getJSONObject(i));
 					//Arrays.sort(SortedArray);
+					String NativesTail=(JSONFunction.Search(Libraries.getJSONObject(i),"natives")&&
+										JSONFunction.Search(Libraries.getJSONObject(i).getJSONObject("natives"),Status.getOS())?
+												"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(Status.getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
 					if(JSONFunction.Search(Libraries.getJSONObject(i), "extract")){
 						//String[] FileList = (new File(minecraftDir+"libraries"+SplitChar+LibrariesPath).list());
 						//System.out.println(FileList[0]);
-						System.out.println("This library will be extracted: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar");
-						extractFiles.add(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar");
+						System.out.println("This library will be extracted: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
+						extractFiles.add(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail+".jar");
 						extractTargetDir.add(NativesDir+SplitChar);
 						ArrayList<String> excludeTemp=new ArrayList<String>();
 						for(String OneExclude:JSONFunction.readArray(Libraries.getJSONObject(i).getJSONObject("extract").getJSONArray("exclude"))){
@@ -471,14 +480,15 @@ public class Launcher{
 						}
 						extractExclude.add(excludeTemp);
 					}else{
-						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar");
-						LaunchCmd += LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+(JSONFunction.Search(Libraries.getJSONObject(i), "natives")?NativesTail:"")+".jar"+System.getProperty("path.separator");
+						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
+						String OneLibraryPath=LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail+".jar";
+						LaunchCmd += (OneLibraryPath.indexOf(' ')>0?"\""+OneLibraryPath+"\"":OneLibraryPath)+System.getProperty("path.separator");
 					}
 				}
 			}
 			System.out.println("----------");
 			new ThreadJob().ExtractJob("Libraries",extractFiles,extractTargetDir,extractExclude);
-			LaunchCmd += MainJar+" "+MainClass;
+			LaunchCmd += (MainJar.indexOf(' ')>0?"\""+MainJar+"\"":MainJar)+" "+MainClass;
 		} catch (IOException e) {
 			System.out.println("Launch Error!");
 			e.printStackTrace();
@@ -487,6 +497,8 @@ public class Launcher{
 		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LaunchingGame"));
 		Status.Theme.MainProgressBar.setIndeterminate(false);
 		Status.Theme.MainProgressBar.setEnabled(false);
+		GameDir=(GameDir.indexOf(' ')>0?"\""+GameDir+"\"":GameDir);
+		AssetsDir=(AssetsDir.indexOf(' ')>0?"\""+AssetsDir+"\"":AssetsDir);
 		LaunchArgs=LaunchArgs.replace("${auth_player_name}",PlayerName);
 		LaunchArgs=LaunchArgs.replace("${auth_uuid}",session.split(":")[2]);
 		LaunchArgs=LaunchArgs.replace("${auth_access_token}",session.split(":")[1]);
@@ -499,12 +511,14 @@ public class Launcher{
 		LaunchArgs=LaunchArgs.replace("${user_properties}","{}");
 		LaunchArgs=LaunchArgs.replace("${user_type}","mojang");
 		LaunchCmd += " "+LaunchArgs;
+		LaunchCmd=LaunchCmd.replace("\\","\\\\");
 		try {
 			System.out.println("\nRunning Command: "+LaunchCmd);
 			System.out.println("--Launch Finished!");
 			TimeCounter.stop();
 			TimeCounter.count();
 			Status.MainFrameObj.setVisible(false);
+			//System.out.println(this.JVMPath+" -jar \""+URLEncoder.encode(System.getProperty("user.dir")+SplitChar+"RF-MCLauncher-B_v2.0a.jar","UTF-8")+"\"");
 			Process LaunchProcess = Runtime.getRuntime().exec(LaunchCmd);
 			BufferedReader p_in = new BufferedReader(new InputStreamReader(LaunchProcess.getInputStream(),"UTF-8"));
             String line="";
