@@ -8,8 +8,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -51,6 +49,9 @@ public class Launcher{
 		}else if(Status.getOS().equals("windows")){
 			minecraftDir= (((System.getenv("APPDATA")!=null)?System.getenv("APPDATA"):System.getProperty("user.home", "."))+"\\.minecraft\\");
 			JVMPath = "\""+System.getProperty("java.home")+"\\bin\\"+(new File("\""+System.getProperty("java.home")+"\\bin\\javaw.exe\"").isFile()?"javaw.exe":"java")+"\"";
+		}else if(Status.getOS().equals("osx")){
+			minecraftDir=System.getProperty("user.home")+"/Library/Application Support/minecraft/";
+			JVMPath=System.getProperty("java.home")+"/bin/java";
 		}
 	}
 	
@@ -322,20 +323,26 @@ public class Launcher{
 				String NativesTail=(JSONFunction.Search(Libraries.getJSONObject(i),"natives")&&
 									JSONFunction.Search(Libraries.getJSONObject(i).getJSONObject("natives"),Status.getOS())?
 											"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(Status.getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
-				FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]);
+				FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]+NativesTail+".jar");
+				/*FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
+							Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))<=9111953?"-universal":""); //For Forge
+				FileURL += "-"+SplitedPath[SplitedPath.length-1];
 				FileURL += NativesTail;
-				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")?"-universal":"")+".jar"; //For Forge
+				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
+						Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))>9111953?"-universal":""); //For Forge
+				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
+							Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))<=890751)?".zip":".jar"; //For Forge*/
 				//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
 				
-				if(CheckLibPermission(Libraries.getJSONObject(i))){
-					System.out.println("-- "+FileURL.replace("-universal",""));
+				if(!SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&CheckLibPermission(Libraries.getJSONObject(i))){
+					System.out.println("-- "+FileURL/*.replace("-universal","")*/);
 					DownloadObject OneLibrary = new DownloadObject();
 					//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
 					OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/")+(JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
-					OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL.replace("-universal","");
+					OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL/*.replace("-universal","")*/;
 					DownloadJobs.add(OneLibrary);
 					//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
-					}else{
+				}else{
 					System.out.println("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
 				}
 			}
@@ -448,7 +455,7 @@ public class Launcher{
 				makeDir(NativesDir+SplitChar+(Status.getOS().equals("windows")?"\\":""));
 				System.out.println("-Natives dir was created!");
 			}
-			LaunchCmd += " -Djava.library.path="+(NativesDir.indexOf(' ')>0?"\""+NativesDir+"\"":NativesDir);
+			LaunchCmd += " -Djava.library.path="+ProgressDirSpace(NativesDir);
 			LaunchCmd += " -cp ";
 			ArrayList<String> extractFiles = new ArrayList<String>();
 			ArrayList<String> extractTargetDir = new ArrayList<String>();
@@ -482,69 +489,99 @@ public class Launcher{
 					}else{
 						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
 						String OneLibraryPath=LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail+".jar";
-						LaunchCmd += (OneLibraryPath.indexOf(' ')>0?"\""+OneLibraryPath+"\"":OneLibraryPath)+System.getProperty("path.separator");
+						LaunchCmd += ProgressDirSpace(OneLibraryPath)+System.getProperty("path.separator");
 					}
 				}
 			}
 			System.out.println("----------");
 			new ThreadJob().ExtractJob("Libraries",extractFiles,extractTargetDir,extractExclude);
-			LaunchCmd += (MainJar.indexOf(' ')>0?"\""+MainJar+"\"":MainJar)+" "+MainClass;
-		} catch (IOException e) {
+			LaunchCmd += ProgressDirSpace(MainJar)+" "+MainClass;
+		/*} catch (IOException e) {
 			System.out.println("Launch Error!");
 			e.printStackTrace();
-		}
+		}*/
 		
-		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LaunchingGame"));
-		Status.Theme.MainProgressBar.setIndeterminate(false);
-		Status.Theme.MainProgressBar.setEnabled(false);
-		GameDir=(GameDir.indexOf(' ')>0?"\""+GameDir+"\"":GameDir);
-		AssetsDir=(AssetsDir.indexOf(' ')>0?"\""+AssetsDir+"\"":AssetsDir);
-		LaunchArgs=LaunchArgs.replace("${auth_player_name}",PlayerName);
-		LaunchArgs=LaunchArgs.replace("${auth_uuid}",session.split(":")[2]);
-		LaunchArgs=LaunchArgs.replace("${auth_access_token}",session.split(":")[1]);
-		LaunchArgs=LaunchArgs.replace("${auth_session}",session);
-		LaunchArgs=LaunchArgs.replace("${game_directory}",GameDir);
-		LaunchArgs=LaunchArgs.replace("${game_assets}",AssetsDir);
-		LaunchArgs=LaunchArgs.replace("${version_name}",Version);
-		LaunchArgs=LaunchArgs.replace("${assets_root}",AssetsDir);
-		LaunchArgs=LaunchArgs.replace("${assets_index_name}",AssetsIndex);
-		LaunchArgs=LaunchArgs.replace("${user_properties}","{}");
-		LaunchArgs=LaunchArgs.replace("${user_type}","mojang");
-		LaunchCmd += " "+LaunchArgs;
-		LaunchCmd=LaunchCmd.replace("\\","\\\\");
-		try {
+			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LaunchingGame"));
+			Status.Theme.MainProgressBar.setIndeterminate(false);
+			Status.Theme.MainProgressBar.setValue(0);
+			Status.Theme.MainProgressBar.setEnabled(false);
+			GameDir=ProgressDirSpace(GameDir);
+			AssetsDir=ProgressDirSpace(AssetsDir);
+			LaunchArgs=LaunchArgs.replace("${auth_player_name}",PlayerName);
+			LaunchArgs=LaunchArgs.replace("${auth_uuid}",session.split(":")[2]);
+			LaunchArgs=LaunchArgs.replace("${auth_access_token}",session.split(":")[1]);
+			LaunchArgs=LaunchArgs.replace("${auth_session}",session);
+			LaunchArgs=LaunchArgs.replace("${game_directory}",GameDir);
+			LaunchArgs=LaunchArgs.replace("${game_assets}",AssetsDir);
+			LaunchArgs=LaunchArgs.replace("${version_name}",Version);
+			LaunchArgs=LaunchArgs.replace("${assets_root}",AssetsDir);
+			LaunchArgs=LaunchArgs.replace("${assets_index_name}",AssetsIndex);
+			LaunchArgs=LaunchArgs.replace("${user_properties}","{}");
+			LaunchArgs=LaunchArgs.replace("${user_type}","mojang");
+			LaunchCmd += " "+LaunchArgs;
+			LaunchCmd=LaunchCmd.replace("\\","\\\\");
+
 			System.out.println("\nRunning Command: "+LaunchCmd);
+			final Process LaunchProcess = Runtime.getRuntime().exec(LaunchCmd);
+			final BufferedReader StdOut = new BufferedReader(new InputStreamReader(LaunchProcess.getInputStream(),"UTF-8"));
+			final BufferedReader ErrOut = new BufferedReader(new InputStreamReader(LaunchProcess.getErrorStream(),"UTF-8"));
+			new Thread(){
+				@Override public void run(){
+					try {
+			            String line="";
+			            while((line = StdOut.readLine()) != null){
+			            	System.out.println("【Minecraft Console】> "+line);
+			            }
+			            StdOut.close();
+					} catch (IOException e) {
+						System.out.println("--*Launch Error*--");
+						e.printStackTrace();
+					}
+				}
+			}.start();
+			new Thread(){
+				@Override public void run(){
+					try {
+			            String line="";
+			            while((line = ErrOut.readLine()) != null){
+			            	System.out.println("【Minecraft Error】> "+line);
+			            }
+			            ErrOut.close();
+					} catch (IOException e) {
+						System.out.println("--*Launch Error*--");
+						e.printStackTrace();
+					}
+				}
+			}.start();
 			System.out.println("--Launch Finished!");
 			TimeCounter.stop();
 			TimeCounter.count();
 			Status.MainFrameObj.setVisible(false);
-			//System.out.println(this.JVMPath+" -jar \""+URLEncoder.encode(System.getProperty("user.dir")+SplitChar+"RF-MCLauncher-B_v2.0a.jar","UTF-8")+"\"");
-			Process LaunchProcess = Runtime.getRuntime().exec(LaunchCmd);
-			BufferedReader p_in = new BufferedReader(new InputStreamReader(LaunchProcess.getInputStream(),"UTF-8"));
-            String line="";
-            try{
-            	LaunchProcess.exitValue();
-            	System.out.println("Launch Over Return:"+LaunchProcess.exitValue());
-            }catch(IllegalThreadStateException e){
-            	System.out.println("\nGame is Running");
-            }
-            while((line = p_in.readLine()) != null){
-            	System.out.println("【Minecraft Console】> "+line);
-            	if(line.matches("^\\W{3,}Game crashed! Crash report saved to: \\W{3,}.*")){
-            		new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("GameError")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-            		break;
-            	}
-            }
-            p_in.close();
+			System.out.println("\nGame is Running");
+			
+            int exitVal = LaunchProcess.waitFor();
+            System.out.println("Launch over with return value:"+exitVal);
             if(!Status.TestArguments("--NoDelNatives")){
             	deleteDir(new File(NativesDir+SplitChar));
             	System.out.println("Deleted Natives Dir!");
             }
+            if(exitVal!=0){
+            	Status.MainFrameObj.setVisible(true);
+            	new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("GameError")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+            }
             Status.MainFrameObj.dispose(); //結束程式
+            Thread.sleep(1000);
             System.exit(0);
 		} catch (IOException e) {
+			System.out.println("--*Launch Error*--");
+			e.printStackTrace();
+		}catch (InterruptedException e) {
+			System.out.println("--*Get Return Value Error!*--");
 			e.printStackTrace();
 		}
+	}
+	private static String ProgressDirSpace(String in){
+		return in.indexOf(' ')>0?"\""+in+"\"":in;
 	}
 	
 	/**
@@ -600,6 +637,10 @@ public class Launcher{
 					if(JSONFunction.Search(Action,"os")){
 						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
 							FinalAction=true;
+							if(JSONFunction.Search(Action.getJSONObject("os"),"version")&&Status.getOS().equals("osx")&&
+									!System.getProperty("os.version").matches(Action.getJSONObject("os").getString("version"))){
+								FinalAction=false;
+							}	
 						}
 					}else{
 						FinalAction=true;
@@ -608,6 +649,10 @@ public class Launcher{
 					if(JSONFunction.Search(Action,"os")){
 						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
 							FinalAction=false;
+							if(JSONFunction.Search(Action.getJSONObject("os"),"version")&&Status.getOS().equals("osx")&&
+									!System.getProperty("os.version").matches(Action.getJSONObject("os").getString("version"))){
+								FinalAction=true;
+							}
 						}
 					}else{
 						FinalAction=false;

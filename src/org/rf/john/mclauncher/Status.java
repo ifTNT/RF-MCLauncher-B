@@ -28,6 +28,8 @@ public class Status{
 			return "windows";
 		}else if(System.getProperty("os.name").toLowerCase().indexOf("nix")>=0 || System.getProperty("os.name").toLowerCase().indexOf("nux")>=0){
 			return "linux";
+		}else if(System.getProperty("os.name").toLowerCase().indexOf("mac")>=0||System.getProperty("os.name").toLowerCase().replace(" ","").indexOf("osx")>=0){
+			return "osx";
 		}else{
 			return "unknow";
 		}
