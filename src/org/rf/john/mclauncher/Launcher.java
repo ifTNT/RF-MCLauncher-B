@@ -36,7 +36,7 @@ public class Launcher{
 	public String toString(){
 		return "  ClassName: "+this.getClass().toString().substring(6)+"\n"+
 				"  Version: #1\n"+
-				"  RunMode: "+(Status.RunMode.equals(RunType.JAR)?"JAR":"Debug")+"\n"+
+				"  RunMode: "+(Status.RunMode.equals(RunModeUtil.JAR)?"JAR":"Debug")+"\n"+
 				"  Online: "+Login.canConnect();
 	}
 	
@@ -267,10 +267,10 @@ public class Launcher{
 					Versions.add(VersionsJson.getJSONArray("versions").getJSONObject(i).getString("id"));
 				}
 				if(Versions.contains(LastVersionID)){
-					ArrayList<DownloadObject> LastVersionIdFiles=new ArrayList<>();
-					LastVersionIdFiles.add(new DownloadObject("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".json",
+					ArrayList<DownloadUtil> LastVersionIdFiles=new ArrayList<>();
+					LastVersionIdFiles.add(new DownloadUtil("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".json",
 																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json"));
-					LastVersionIdFiles.add(new DownloadObject("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".jar",
+					LastVersionIdFiles.add(new DownloadUtil("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".jar",
 																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar"));
 					new ThreadJob().DownloadJob("Profile and Jar",LastVersionIdFiles);
 				}else{
@@ -306,7 +306,7 @@ public class Launcher{
 			System.out.println("Downloading libraries");
 			Status.Theme.MainProgressBar.setMaximum(Libraries.length());
 			Status.Theme.MainProgressBar.setValue(0);
-			ArrayList<DownloadObject> DownloadJobs=new ArrayList<>();
+			ArrayList<DownloadUtil> DownloadJobs=new ArrayList<>();
 			for(int i=0;i<Libraries.length();i++){
 				String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
 				//LibrariesPath=LibrariesPath.replace(":",".");
@@ -336,7 +336,7 @@ public class Launcher{
 				
 				if(!SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&CheckLibPermission(Libraries.getJSONObject(i))){
 					System.out.println("-- "+FileURL/*.replace("-universal","")*/);
-					DownloadObject OneLibrary = new DownloadObject();
+					DownloadUtil OneLibrary = new DownloadUtil();
 					//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
 					OneLibrary.DownloadPath=((JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,"/")+(JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
 					OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL/*.replace("-universal","")*/;
@@ -354,13 +354,13 @@ public class Launcher{
 			Status.Theme.MainProgressBar.setIndeterminate(false);
 			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
 			
-			new ThreadJob().DownloadJob("AssetsIndex",new DownloadObject(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
+			new ThreadJob().DownloadJob("AssetsIndex",new DownloadUtil(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
 			Status.Theme.MainProgressBar.setValue(0);
 			Status.Theme.MainProgressBar.setIndeterminate(true);
 			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
 			JSONObject AssetsIndexJSON = JSONFunction.CreateFromFile(this.minecraftDir+SplitChar+"assets"+SplitChar+"indexes"+SplitChar+AssetsIndex+".json");
 			boolean Virtual = JSONFunction.Search(AssetsIndexJSON,"virtual")&&AssetsIndexJSON.getBoolean("virtual");
-			HashMap<DownloadObject,Integer> DownloadAssets = new HashMap<>();
+			HashMap<DownloadUtil,Integer> DownloadAssets = new HashMap<>();
 			for(String OneAssetName:JSONObject.getNames(AssetsIndexJSON.getJSONObject("objects"))){				
 				String Hash = AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getString("hash");
 				
@@ -395,7 +395,7 @@ public class Launcher{
 					}
 				}*/
 				
-				DownloadObject OneDownloadAsset=new DownloadObject();
+				DownloadUtil OneDownloadAsset=new DownloadUtil();
 				OneDownloadAsset.DownloadPath=(this.AssetsBaseDownloadURL+Hash.substring(0,2)+SplitChar+Hash).replace(SplitChar,"/");
 				OneDownloadAsset.FilePath=
 						(Virtual?AssetsDir+SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:AssetsDir+SplitChar+"objects"+SplitChar)+
@@ -405,16 +405,16 @@ public class Launcher{
 			Status.Theme.MainProgressBar.setIndeterminate(false);
 			
 			//----------按檔案大小排序檔案-------------
-			ArrayList<Entry<DownloadObject, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
-			Collections.sort(Sorter,new Comparator<Entry<DownloadObject,Integer>>(){
+			ArrayList<Entry<DownloadUtil, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
+			Collections.sort(Sorter,new Comparator<Entry<DownloadUtil,Integer>>(){
 				@Override
-				public int compare(Entry<DownloadObject, Integer> o1,Entry<DownloadObject, Integer> o2){
+				public int compare(Entry<DownloadUtil, Integer> o1,Entry<DownloadUtil, Integer> o2){
 					return (o1.getValue()-o2.getValue());
 				}	
 			});
 			
-			ArrayList<DownloadObject> SortedAssets = new ArrayList<>();
-			for(Entry<DownloadObject,Integer> OneDownloadObject:Sorter){
+			ArrayList<DownloadUtil> SortedAssets = new ArrayList<>();
+			for(Entry<DownloadUtil,Integer> OneDownloadObject:Sorter){
 				SortedAssets.add(OneDownloadObject.getKey());
 			}
 			//-------------END 排序-----------------

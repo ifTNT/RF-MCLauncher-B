@@ -135,7 +135,7 @@ public class Main {
 		System.out.println("  |   |       \\   \\         |    |");
 		System.out.println("  |___|        \\___\\ as     |____| un軟體工作室");
 		//-------------------------------------------------------------
-		if(Status.RunMode.equals(RunType.JAR)){
+		if(Status.RunMode.equals(RunModeUtil.JAR)){
 			try {
 				PrintStream out = new PrintStream(new FileOutputStream(new File("launch.log"))); 
 				System.setOut(out);
@@ -587,7 +587,7 @@ class ThreadJob{
 		Download,Extract
 	}
 	
-	public void DownloadJob(String _jn,DownloadObject Do){
+	public void DownloadJob(String _jn,DownloadUtil Do){
 		Status.Busy=true;
 		this.Type=ThreadJobType.Download;
 		this.JobCount=1;
@@ -614,13 +614,13 @@ class ThreadJob{
 	 * @param _JobName 工做名稱
 	 * @param DownloadBaseURL 下載物件
 	 */
-	public void DownloadJob(String _JobName,ArrayList<DownloadObject> DownloadObjects){DownloadJob(_JobName,DownloadObjects.size(),DownloadObjects);}
-	public void DownloadJob(String _JobName,int MaxThreads,ArrayList<DownloadObject> DownloadObjects){
+	public void DownloadJob(String _JobName,ArrayList<DownloadUtil> DownloadObjects){DownloadJob(_JobName,DownloadObjects.size(),DownloadObjects);}
+	public void DownloadJob(String _JobName,int MaxThreads,ArrayList<DownloadUtil> DownloadObjects){
 		Status.Busy=true;
 		this.ThisJob=this;
-		final ArrayList<DownloadObject> NeedDownloads=new ArrayList<>();
+		final ArrayList<DownloadUtil> NeedDownloads=new ArrayList<>();
 		for(int i=0;i<=DownloadObjects.size()-1;i++/*int i=DownloadObjects.size()-1;i>=0;i--*/){
-			DownloadObject OneDownloadJob=DownloadObjects.get(i);
+			DownloadUtil OneDownloadJob=DownloadObjects.get(i);
 			if(!new File(OneDownloadJob.FilePath.replace("-universal","")).isFile()){NeedDownloads.add(OneDownloadJob);}
 		}
 		if(NeedDownloads.size()==1){
@@ -644,7 +644,7 @@ class ThreadJob{
 				public void run(){
 					Thread.currentThread().setName("DownloadHub1");
 					for(int i=0;i<=(JobCount/2)-1;i++){
-						DownloadObject OneDownloadJob=NeedDownloads.get(i);
+						DownloadUtil OneDownloadJob=NeedDownloads.get(i);
 						if(RunningJobs>=_MaxThreads){
 							try {
 								while(RunningJobs>_MaxThreads/2){
@@ -674,7 +674,7 @@ class ThreadJob{
 				public void run(){
 					Thread.currentThread().setName("DownloadHub2");
 					for(int j=JobCount/2;j<=JobCount-1;j++){
-						DownloadObject OneDownloadJob=NeedDownloads.get(j);
+						DownloadUtil OneDownloadJob=NeedDownloads.get(j);
 						if(RunningJobs>=_MaxThreads){
 							try {
 								while(RunningJobs>_MaxThreads/2){
@@ -775,13 +775,13 @@ class ThreadJob{
 	}
 }
 
-class DownloadObject{
+class DownloadUtil{
 	public String DownloadPath;
 	//public String DownloadServer;
 	//public String FileRootDir;
 	public String FilePath;
-	public DownloadObject(){}
-	public DownloadObject(String _DownloadPath,String _FilePath){
+	public DownloadUtil(){}
+	public DownloadUtil(String _DownloadPath,String _FilePath){
 		this.DownloadPath=_DownloadPath;
 		//this.DownloadServer=Ds;
 		//this.FileRootDir=Frd;

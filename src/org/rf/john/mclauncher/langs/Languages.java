@@ -14,7 +14,7 @@ import java.util.jar.JarFile;
 import org.json.JSONObject;
 import org.rf.john.mclauncher.JSONFunction;
 import org.rf.john.mclauncher.Status;
-import org.rf.john.mclauncher.RunType;
+import org.rf.john.mclauncher.RunModeUtil;
 
 public class Languages{
 	private JSONObject Lang; //語系
@@ -47,7 +47,7 @@ public class Languages{
 		
 		JSONObject LangJSON=new JSONObject();
 		try {
-			if(Status.RunMode.equals(RunType.JAR)){	
+			if(Status.RunMode.equals(RunModeUtil.JAR)){	
 				ClassLoader cl=this.getClass().getClassLoader();
 				LangJSON=JSONFunction.CreateFromStream(cl.getResourceAsStream("org/rf/john/mclauncher/langs/"+SelectLang));
 			}else{
@@ -78,7 +78,7 @@ public class Languages{
 	public final HashMap<String,String> InstalledLang(){
 		HashMap<String, String> InstalledLang = new HashMap<>();
 		try {
-			if(Status.RunMode.equals(RunType.JAR)){
+			if(Status.RunMode.equals(RunModeUtil.JAR)){
 				String ThisJarPath=this.getClass().getProtectionDomain().getCodeSource().getLocation().getPath();
 				if(ThisJarPath.contains("!")){
 					ThisJarPath=ThisJarPath.substring(0,ThisJarPath.indexOf("!"));

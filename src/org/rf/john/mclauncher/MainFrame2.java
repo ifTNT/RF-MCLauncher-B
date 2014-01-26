@@ -59,7 +59,7 @@ public class MainFrame2 extends JFrame {
 		this.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 		this.setResizable(false);
 		ImageIcon icon;
-		if(Status.RunMode.equals(RunType.Debug)){
+		if(Status.RunMode.equals(RunModeUtil.Debug)){
 			icon = new ImageIcon("images/icon.png");  //Debug
 		}else{
 			icon = new ImageIcon(Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/icon.png")));  /******JAR******/

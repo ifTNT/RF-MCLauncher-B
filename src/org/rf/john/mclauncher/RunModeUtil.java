@@ -1,5 +1,5 @@
 package org.rf.john.mclauncher;
 
-public enum RunType{
+public enum RunModeUtil{
 	Debug,JAR
 }

@@ -126,7 +126,7 @@ public class LaunchPanel extends JPanel {
     
 	public void _SetBackground(String imgurl,int width,int height) {
         try {
-        	if(Status.RunMode.equals(RunType.Debug)){
+        	if(Status.RunMode.equals(RunModeUtil.Debug)){
         		image = ImageIO.read(new File(imgurl));  //Debug
         	}else{
         		this.getClass().getClassLoader();
@@ -145,7 +145,7 @@ public class LaunchPanel extends JPanel {
     //@SuppressWarnings("static-access")
     public void _SetBackground(String imgurl,int StartX,int StartY,int width,int height) {
         try {
-        	if(Status.RunMode.equals(RunType.Debug)){
+        	if(Status.RunMode.equals(RunModeUtil.Debug)){
         		image = ImageIO.read(new File(imgurl));  //Debug
         	}else{
         		this.getClass().getClassLoader();
