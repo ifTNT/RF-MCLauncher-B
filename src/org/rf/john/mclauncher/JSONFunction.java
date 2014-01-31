@@ -69,19 +69,19 @@ public class JSONFunction{
 		WriteStream.close();
 	}
 	
-	/**
+	/*
 	 * 搜尋該標籤是否在該JSON內(防止產生錯誤)
 	 * @param input JSON
 	 * @param key 欲搜索的標籤
 	 * @return 該標籤是否存在
-	 */
+	 *
 	@SuppressWarnings("static-access")
 	public static boolean Search(JSONObject input,String key){
 		//String[] SortedArray = new JSONObject().getNames(input);
 		//Arrays.sort(SortedArray);
 		//return ((Arrays.binarySearch(SortedArray,key) > -1)?true:false);
 		return new HashSet<String>(Arrays.asList(new JSONObject().getNames(input))).contains(key);
-	}
+	}*/
 	
 	/*
 	 * 取得JSONArray的第key項

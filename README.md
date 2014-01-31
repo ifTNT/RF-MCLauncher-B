@@ -51,6 +51,9 @@ RF-MCLauncher-B
     +下載檔案中關閉視窗時 會詢問
     * 精簡程式碼
     +遊戲主程式不存在時,會自動下載
+#####3.0a
+    -移除Apache Ant Zip library
+    -刪除沒有用到的程式庫檔案
 
 ##參數
 - --NoDelNatives : 不要刪除Natives資料夾(除錯用)

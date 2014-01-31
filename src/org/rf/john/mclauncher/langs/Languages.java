@@ -106,12 +106,13 @@ public class Languages{
 				String WorkDirPath=WorkDirPatht.getFile();
 				//File dir=null;
 				String LangDir="";
-				if(!Status.getOS().equals("windows")){
-					LangDir=WorkDirPath;
-				}else{
+				if(Status.getOS().equals("windows")){
 					LangDir=WorkDirPath.substring(1,WorkDirPath.length()).replace("/","\\");
+				}else{
+					LangDir=WorkDirPath;
 				}
 				LangDir=URLDecoder.decode(LangDir,"UTF-8");
+				//String LangDir=URLDecoder.decode(System.getProperty("user.dir")+"/src/org/rf/john/mclauncher/langs/".replace('/',File.separatorChar),"UTF-8");
 				//----------END 取得工作資料夾----------
 				String[] InstalledLangs = new File(LangDir).list(new FilenameFilter() { //--┐
 					public boolean accept(File directory, String fileName) { //				|
@@ -151,8 +152,8 @@ public class Languages{
 	 * @return 語系內容
 	 */
 	public final String getString(String Path){
-		if(!JSONFunction.Search(this.Lang,Path)) System.out.println("--*Undefined lang field: \""+Path+"\" *--");
-		return JSONFunction.Search(this.Lang,Path)?this.Lang.getString(Path):"{Undefined}";
+		if(!this.Lang.has(Path)) System.out.println("--*Undefined lang field: \""+Path+"\" *--");
+		return this.Lang.has(Path)?this.Lang.getString(Path):"{Undefined}";
 	}
 }
 /*class lang_no_en extends Languages {{

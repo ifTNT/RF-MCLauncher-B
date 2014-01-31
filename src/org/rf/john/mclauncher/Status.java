@@ -8,7 +8,7 @@ import org.rf.john.mclauncher.Themes.Theme;
 
 
 public class Status{
-	public static String Version="v2.0a"; //RF-MCLauncher-B的版本
+	public static String Version="v3.0a"; //RF-MCLauncher-B的版本
 	public static RunModeUtil RunMode=RunModeUtil.JAR; //運作模式(Debug/JAR)
 	
 	public static HashSet<String> Arguments=new HashSet<>(); //啟動參數

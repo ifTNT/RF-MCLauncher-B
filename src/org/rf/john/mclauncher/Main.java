@@ -4,7 +4,6 @@ package org.rf.john.mclauncher;
 
 Apache commons-codec1.8.jar
 JSON.org json.jar(自行編譯)
-Apache apache-ant-1.9.2/ant.jar
 tukaani.org xz-java-1.4.zip
 
 -----------END 引用的檔案-------------*/
@@ -44,17 +43,13 @@ tukaani.org xz-java-1.4.zip
 
 -------------------------------------END GPLv3授權---------------------------------------*/
 
-/*============================================
- | **特別規定: 請勿將此啟動器變更為非正版的啟動器** |
- ============================================*/
-
-
 import javax.swing.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -66,14 +61,14 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Pack200;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.tools.zip.ZipEntry;
-import org.apache.tools.zip.ZipFile;
 import org.json.JSONObject;
 import org.rf.john.mclauncher.langs.*;
 
@@ -172,7 +167,6 @@ public class Main {
 		System.out.println("os.version= "+System.getProperty("os.version"));
 		System.out.println("java.version= "+System.getProperty("java.version"));
 		System.out.println("Running at \" "+System.getProperty("user.dir")+" \"");
-		
 		Save_LoadConfig langconfig = new Save_LoadConfig();
 		String LocalLang="";
 		switch(System.getProperty("user.country").toLowerCase()){
@@ -190,6 +184,7 @@ public class Main {
 		Status.SelectedLang = new Languages().SelectLanguages(langconfig.Saved()?langconfig.getSelectedLang():LocalLang);
 		
 		Status.Launcher=new Launcher(Status.SelectedLang);
+		
 		new Thread(){@Override public void run(){Login.checkConnect();}}.start();
 		new Thread(){@Override public void run(){
 			try {
@@ -208,46 +203,31 @@ public class Main {
 			}
 		}}.start();
 		/*try{
-			/*URL RFMCLB_InfoDownloadURL = new URL("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json");
-			URLConnection urlc = RFMCLB_InfoDownloadURL.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
-			ConnectObj.connect();
-			RFInfo.RFMCLB_InfoJSON=JSONFunction.CreateFromStream(ConnectObj.getInputStream());*/
-					
-			//RFInfo.Launcher=new Launcher();
-			//JSONObject RFMCLB_InfoJSON = new JSONObject(RFMCLB_Info);
-			/*
+			Status.RFMCLB_InfoJSON=JSONFunction.CreateFromStream(
+					DownloadThread.getConnectObj("https://raw2.github.com/ifTNT/RF-MCLauncher-B/master/RFMCLB_Info.json").getInputStream());
+			
 			//--------Start 產生物件-------
-			URL ClassSearchPath[]={new File("").getAbsoluteFile().toURL()}; //搜尋路徑
-			ClassLoader cl = new URLClassLoader(ClassSearchPath); //產生ClassLoader
+			//URL ClassSearchPath[]={new File("").getAbsoluteFile().toURL()}; //搜尋路徑
+			ClassLoader cl = new URLClassLoader(new URL[] {new URL(System.getProperty("user.dir"))}); //產生ClassLoader
 			Launcher OldLauncher=null;
 			if(new File("org/rf/john/mclauncher/Launcher.class".replace("/",System.getProperty("file.separator"))).isFile()){ //Load From File
-				Class c = cl.loadClass("org.rf.john.mclauncher.Launcher");
+				Class<?> c = cl.loadClass("org.rf.john.mclauncher.Launcher");
 				//Constructor constructor = c.getConstructor(Languages.class);
 				OldLauncher = (Launcher)c.newInstance();
-				System.out.println("Load Launcher From \" RFMCLB_Launcher.class \"(#"+OldLauncher.PrintLauncherVersion()+")");
+				System.out.println("Load Launcher From \" RFMCLB_Launcher.class\n"+OldLauncher.toString());
 			}else{ //Load From JAR
-				OldLauncher=new Launcher(RFInfo.SelectedLang);
-				System.out.println("Load Launcher From JAR(#"+OldLauncher.PrintLauncherVersion()+")");
+				OldLauncher=new Launcher(Status.SelectedLang);
+				System.out.println("Load Launcher From JAR\n"+OldLauncher.toString());
 			}
 			//-------End 產生物件---------
 			
-			if(RFInfo.RFMCLB_InfoJSON.getInt("LauncherLastVersion") <= OldLauncher.PrintLauncherVersion() || RFInfo.RunMode == RunType.Debug || RFInfo.TestArguments("--NoUpdate")){
-				RFInfo.Launcher=OldLauncher; //No Update
-				System.out.println(RFInfo.RunMode == RunType.Debug?"Skip Download!":"No Newer Launcher Found!");
+			if(Status.RFMCLB_InfoJSON.getInt("LauncherLastVersion") <= OldLauncher.LauncherVersion || Status.RunMode == RunModeUtil.Debug || Status.TestArguments("--NoUpdate")){
+				Status.Launcher=OldLauncher; //No Update
+				System.out.println(Status.RunMode == RunModeUtil.Debug?"Skip Download!":"No Newer Launcher Found!");
 			}else{
-				System.out.println("Found New Launcher(#"+RFInfo.RFMCLB_InfoJSON.getInt("LauncherLastVersion")+"), Downloading...");
-				URL NewLauncherURL = new URL("http://rf_mclauncher_b.000space.com/RFMCLB_Launcher_"+RFInfo.RFMCLB_InfoJSON.getInt("LauncherLastVersion")+".class");
-				//DownloadLauncherDisplayThread DisplayThread=new DownloadLauncherDisplayThread();
-				urlc = NewLauncherURL.openConnection();
-				urlc.setConnectTimeout(5000);
-				ConnectObj = (HttpURLConnection) urlc;
-				ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
-				ConnectObj.connect();
-				//long FileSize=ConnectObj.getContentLengthLong();
-				InputStream = new BufferedInputStream(ConnectObj.getInputStream());
+				System.out.println("Found New Launcher(#"+Status.RFMCLB_InfoJSON.getInt("LauncherLastVersion")+"), Downloading...");
+				
+				BufferedInputStream InputStream = new BufferedInputStream(DownloadThread.getConnectObj("http://rf_mclauncher_b.000space.com/RFMCLB_Launcher_"+Status.RFMCLB_InfoJSON.getInt("LauncherLastVersion")+".class").getInputStream());
 						
 				String Dirs[]="org/rf/john/mclauncher/".split("/");
 				System.out.println("Creating Dir: org/rf/john/mclauncher/");
@@ -261,18 +241,7 @@ public class Main {
 				}
 				new File("org/rf/john/mclauncher/Launcher.class".replace("/",System.getProperty("file.separator"))).createNewFile();
 				BufferedOutputStream WriteStream = new BufferedOutputStream(new FileOutputStream("org/rf/john/mclauncher/Launcher.class".replace("/",System.getProperty("file.separator"))));
-				buf=new byte[1024];
-				//long ReadBytes=0;
-				//DisplayThread.start();
-				len=InputStream.read(buf);
-				while(len > 0){
-					WriteStream.write(buf,0, len);
-					//ReadBytes+=len;
-					//int Progress=(int)((ReadBytes/FileSize)*100);
-					//DisplayThread.DisplayBar.setValue(Progress);
-					//DisplayThread.DisplayBar.setString(Progress+"%");
-					len=InputStream.read(buf);
-				}
+				WriteStream.write(DownloadThread.readFully(InputStream));
 				InputStream.close();
 				WriteStream.flush();
 				WriteStream.close();
@@ -280,21 +249,19 @@ public class Main {
 				System.out.println("Download Finish!");
 						
 				//--------Start 產生物件-------
-				Class c = cl.loadClass("org.rf.john.mclauncher.Launcher");
+				Class<?> c = cl.loadClass("org.rf.john.mclauncher.Launcher");
 				//Constructor constructor = c.getConstructor(Languages.class);
-				RFInfo.Launcher = (Launcher)c.newInstance();
+				Status.Launcher = (Launcher)c.newInstance();
 				//-------End 產生物件---------
 			}
 		}catch(IOException e){
 			System.out.println("--*Get RFMCLB_Info Error*--");
+			System.out.println("--*Use default sitting*--");
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {
 			System.out.println("--*Load Launcher Error*--");
 			e.printStackTrace();
-		} /*catch (NoSuchMethodException e) {
-			System.out.println("--*Load Launcher Error*--");
-			e.printStackTrace();
-		}/ catch (SecurityException e) {
+		} catch (SecurityException e) {
 			System.out.println("--*Load Launcher Error*--");
 			e.printStackTrace();
 		} catch (InstantiationException e) {
@@ -306,11 +273,6 @@ public class Main {
 		} catch (IllegalArgumentException e) {
 			System.out.println("--*Load Launcher Error*--");
 			e.printStackTrace();
-		}*/
-		/*}catch(IOException e){
-			System.out.println("--*Get RFMCLB_Info Error*--");
-			e.printStackTrace();
-			System.out.println("--*Use default sitting*--");
 		}*/
 			
 		//RFInfo.Launcher=new Launcher(RFInfo.SelectedLang);
@@ -432,7 +394,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 		if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"user")&&JSONFunction.Search(json,"pwd")?new String(new Base64().decode(json.getString("pwd"))):"";
+			return json.has("user")&&json.has("pwd")?new String(new Base64().decode(json.getString("pwd"))):"";
 		}catch(IOException e){
 			System.out.println("--*Load Password Error*--");
 			e.printStackTrace();
@@ -447,7 +409,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"user")?json.getString("user"):"";
+			return json.has("user")?json.getString("user"):"";
 		}catch(IOException e){
 			System.out.println("--*Load User Error*--");
 			e.printStackTrace();
@@ -469,7 +431,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return false;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"user");
+			return json.has("user");
 		}catch(IOException e){
 			System.out.println("--*Check Logined Error*--");
 			e.printStackTrace();
@@ -490,7 +452,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"JVMPath")?json.getString("JVMPath"):"";
+			return json.has("JVMPath")?json.getString("JVMPath"):"";
 		}catch(IOException e){
 			System.out.println("--*Load JVMPath Error*--");
 			e.printStackTrace();
@@ -505,7 +467,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"MinecraftPath")?json.getString("MinecraftPath"):"";
+			return json.has("MinecraftPath")?json.getString("MinecraftPath"):"";
 		}catch(IOException e){
 			System.out.println("--*Load MinecraftPath Error*--");
 			e.printStackTrace();
@@ -520,7 +482,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"SelectedLang")?json.getString("SelectedLang"):"";
+			return json.has("SelectedLang")?json.getString("SelectedLang"):"";
 		}catch(IOException e){
 			System.out.println("--*Load SelectedLang Error*--");
 			e.printStackTrace();
@@ -535,7 +497,7 @@ class Save_LoadConfig{ //設定檔操作
 		try{
 			if(!new File(this.ConfigFile).exists()) return null;
 			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
-			return JSONFunction.Search(json,"LastVersion")?json.getString("LastVersion"):"";
+			return json.has("LastVersion")?json.getString("LastVersion"):"";
 		}catch(IOException e){
 			System.out.println("--*Load LastVersion Error*--");
 			e.printStackTrace();
@@ -578,18 +540,18 @@ class ThreadJob{
 	private int FinishedJobs=0;
 	private int RunningJobs=0;
 	//private MainFrame FrameObj;
-	private ThreadJobType Type;
+	private String Type;
 	private String JobName;
 	private ThreadJob ThisJob;
 	private int o0o=0;
 	private int o0oDelay=0;
-	public static enum ThreadJobType{
+	/*public static enum ThreadJobType{
 		Download,Extract
-	}
+	}*/
 	
 	public void DownloadJob(String _jn,DownloadUtil Do){
 		Status.Busy=true;
-		this.Type=ThreadJobType.Download;
+		this.Type="Download";
 		this.JobCount=1;
 		this.FinishedJobs=0;
 		Status.Theme.MainProgressBar.setIndeterminate(true);
@@ -627,7 +589,7 @@ class ThreadJob{
 			DownloadJob(_JobName,NeedDownloads.get(0));
 			return;
 		}
-		this.Type=ThreadJobType.Download;
+		this.Type="Download";
 		this.JobCount=NeedDownloads.size();
 		this.JobName=_JobName;
 		if(MaxThreads>this.JobCount) MaxThreads=this.JobCount;
@@ -726,7 +688,7 @@ class ThreadJob{
 	 * @param exclude 排除的檔案
 	 */
 	public void ExtractJob(String _JobName,ArrayList<String> ExtractFile,ArrayList<String> TargetDir,ArrayList<ArrayList<String>> exclude){ //Extract
-		this.Type=ThreadJobType.Extract;
+		this.Type="Extract";
 		this.JobCount=ExtractFile.size();
 		this.JobName=_JobName;
 		Status.Theme.MainProgressBar.setMaximum(this.JobCount);
@@ -734,7 +696,7 @@ class ThreadJob{
 		Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib")+"("+this.FinishedJobs+"/"+this.JobCount+")");
 		System.out.println(" max thread:"+this.JobCount);
 		for(int i=0;i<this.JobCount;i++){
-			new ExtractThread(ExtractFile.get(i),TargetDir.get(i),exclude.get(i).toArray(),this).start();
+			new ExtractThread(ExtractFile.get(i),TargetDir.get(i),exclude.get(i),this).start();
 		}
 		while(this.FinishedJobs!=this.JobCount){
 			if(o0oDelay==0){
@@ -764,13 +726,10 @@ class ThreadJob{
 		this.RunningJobs--;
 		Status.Theme.MainProgressBar.setValue(FinishedJobs); //完成進度
 		String Showo0o=(o0o==0?"0":"o")+(o0o==1?"0":"o")+(o0o==2?"0":"o");
-		switch(this.Type){
-		case Download:
+		if(this.Type.equals("Download")){
 			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("Downloading")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
-			break;
-		case Extract:
+		}else{
 			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib")+" ("+this.FinishedJobs+"/"+this.JobCount+")"+Showo0o);
-			break;
 		}
 	}
 }
@@ -834,10 +793,10 @@ class DownloadThread extends Thread{
 		}
 		System.out.println(this.FileURL+" , "+LibrariesPath);*/
 		
-		if(this.FileURL.lastIndexOf(Status.Launcher.SplitChar)>0){
-			String TargetDir=this.FileURL.substring(0,this.FileURL.lastIndexOf(Status.Launcher.SplitChar));
+		if(this.FileURL.lastIndexOf(File.separatorChar)>0){
+			String TargetDir=this.FileURL.substring(0,this.FileURL.lastIndexOf(File.separatorChar));
 			//System.out.println("Starting make dir: "+TargetDir);
-			Status.Launcher.makeDir(TargetDir);
+			new File(TargetDir).mkdirs();
 		}
 		System.out.println("Starting download: "+this.FileURL.substring(this.FileURL.lastIndexOf(".minecraft")));
 		try{
@@ -918,6 +877,19 @@ class DownloadThread extends Thread{
 
 		return entryBuffer.toByteArray();
 	}
+	public static byte[] readFully(ZipInputStream stream) throws IOException{
+		byte[] data = new byte[4096];
+		ByteArrayOutputStream entryBuffer = new ByteArrayOutputStream();
+		int len;
+		do {
+			len = stream.read(data);
+			if (len > 0){
+				entryBuffer.write(data, 0, len);
+			}
+		}while (len != -1);
+
+		return entryBuffer.toByteArray();
+	}
 	//------END 從ForgeInstaller複製過來的方法------
 }
 /**
@@ -928,7 +900,8 @@ class DownloadThread extends Thread{
 class ExtractThread extends Thread{ 
     private String InputFile;
     private String TargetDir;
-    private Object[] Exclude;
+    //private Object[] Exclude;
+    private HashSet<String> Exclude;
     private ThreadJob JobTable;
     /**
      * 單一執行續工作設定
@@ -937,22 +910,44 @@ class ExtractThread extends Thread{
      * @param exclude 排除的檔案
      * @param rootjob 工作分配器
      */
-	public ExtractThread(String inputfile,String targetDir,Object[] exclude,ThreadJob rootjob){
+	public ExtractThread(String inputfile,String targetDir,ArrayList<String> exclude,ThreadJob rootjob){
 		this.InputFile=inputfile;
 		this.TargetDir=targetDir;
-		this.Exclude=exclude;
+		this.Exclude=new HashSet<String>(exclude);
 		this.JobTable=rootjob;
 	}
 	@Override
 	public void run(){
 		if(!new File(this.TargetDir).isDirectory()){
-			new File(this.TargetDir).mkdir();
-		}
+			new File(this.TargetDir).mkdirs();
+		}/*
 		FileOutputStream fileOut; 
         File file; 
         InputStream inputStream; 
-		Arrays.sort(this.Exclude);
+		Arrays.sort(this.Exclude);*/
         try{
+        	ZipInputStream ZipInput = new ZipInputStream(new FileInputStream(new File(this.InputFile)));
+        	ZipEntry OneEntry = ZipInput.getNextEntry();
+        	
+        	while(OneEntry!=null){
+        		String TargetFileName=OneEntry.getName();
+        		if(this.Exclude.contains(TargetFileName)||TargetFileName.matches(".*/.*")){
+        			System.out.println("Skip: "+TargetFileName);
+        			OneEntry=ZipInput.getNextEntry();
+        			continue;
+        		}
+        		System.out.println("Extracting: "+TargetFileName);
+        		if(!new File(this.TargetDir+File.separatorChar+TargetFileName).isFile())
+        			new File(this.TargetDir+File.separatorChar+TargetFileName).createNewFile();
+        		FileOutputStream TargetFileStream=new FileOutputStream(new File(this.TargetDir+File.separatorChar+TargetFileName));
+        		TargetFileStream.write(DownloadThread.readFully(ZipInput));
+        		TargetFileStream.close();
+        		OneEntry=ZipInput.getNextEntry();
+        	}
+        	ZipInput.closeEntry();
+        	ZipInput.close();
+        	
+        	/*
             ZipFile zipFile = new ZipFile(this.InputFile);
             
             for(Enumeration<ZipEntry> entries = zipFile.getEntries(); entries.hasMoreElements();){ 
@@ -982,13 +977,13 @@ class ExtractThread extends Thread{
                     while(len > 0){ 
                         fileOut.write(buf,0,len);
                         len=inputStream.read(buf);
-                    } */
+                    } *
                     fileOut.close();
 
                     inputStream.close(); 
                 }    
             } 
-            zipFile.close(); 
+            zipFile.close(); */
         }catch(IOException e){
         	System.out.println("--*Extract Error:*--");
             e.printStackTrace(); 
