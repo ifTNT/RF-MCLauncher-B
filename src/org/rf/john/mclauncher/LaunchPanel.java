@@ -53,6 +53,11 @@ public class LaunchPanel extends JPanel {
 	public final void SetValue(String User,String Pwd,ArrayList<String> Profiles,boolean rememberme,boolean launcheOffline){
 		this.UserBox = new JTextField(User,1);
 		this.PwdBox = new JPasswordField(Pwd,1);
+		
+		//TODO dev-OSX
+		this.PwdBox.setEnabled(false);
+		this.PwdBox.setText("dev-OSX");
+		
 		String ProfilesName[]=new String[Profiles.size()];
 		System.out.println("Loaded "+Status.Launcher.getInstalledProfiles().size()+" profiles from launcher_profiles.json");
 		if(!TextStyles.containsKey("ProfileFormat")){System.out.println("--*Theme Error:Undefined TextStyle*--");return;}

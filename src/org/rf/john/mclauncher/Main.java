@@ -61,6 +61,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -70,6 +71,9 @@ import java.util.zip.ZipInputStream;
 
 import org.apache.commons.codec.binary.Base64;
 import org.json.JSONObject;
+import org.rf.john.mclauncher.Themes.OakTheme;
+import org.rf.john.mclauncher.Themes.Theme;
+import org.rf.john.mclauncher.Themes.ThemeSelector;
 import org.rf.john.mclauncher.langs.*;
 
 import org.tukaani.xz.XZInputStream;
@@ -154,6 +158,8 @@ public class Main {
 		System.out.println("  |      |              \\      \\            |        |");
 		System.out.println("  |___|                \\___\\   as   |____|   un軟體工作室");
 		System.out.println("\nRF-MCLauncher-B "+Status.Version);
+		//TODO dev-OSX
+		System.out.println("OSX開發版");
 		System.out.println("版權所有 (C) 2014 by曙@RasFun軟體工作室");
 		System.out.println("本程式採用GPLv3授權 請詳閱相關條款\n");
 		System.out.print("Arguments: ");
@@ -167,7 +173,7 @@ public class Main {
 		System.out.println("os.version= "+System.getProperty("os.version"));
 		System.out.println("java.version= "+System.getProperty("java.version"));
 		System.out.println("Running at \" "+System.getProperty("user.dir")+" \"");
-		Save_LoadConfig langconfig = new Save_LoadConfig();
+		Save_LoadConfig config = new Save_LoadConfig();
 		String LocalLang="";
 		switch(System.getProperty("user.country").toLowerCase()){
 		case "tw":
@@ -181,7 +187,12 @@ public class Main {
 			break;
 			
 		}
-		Status.SelectedLang = new Languages().SelectLanguages(langconfig.Saved()?langconfig.getSelectedLang():LocalLang);
+		/*HashMap<String,Theme> InstalledThemes=new ThemeSelector().getInstalledTheme();
+		for(Theme OneTheme:InstalledThemes.values()){
+			System.out.println(OneTheme.Author);
+		}*/
+		//System.out.println(.values().iterator().next().Author);
+		Status.SelectedLang = new Languages().SelectLanguages(config.Saved()?config.getSelectedLang():LocalLang);
 		
 		Status.Launcher=new Launcher(Status.SelectedLang);
 		
@@ -279,10 +290,28 @@ public class Main {
 		System.out.println("Default JVM path: "+Status.Launcher.JVMPath); //JVM預設路徑
 		System.out.println("Default Minecraft path: "+Status.Launcher.minecraftDir+"\n"); //minecraft預設路徑
 		
+		if(!new File(Status.Launcher.minecraftDir+"launcher_profiles.json").isFile()){ //TODO dev-OSX
+			try {
+				JSONFunction.WriteToFile(
+						new JSONObject().put("selectedProfile","dev-OSX")
+						.put("profiles",
+								new JSONObject().put("dev-OSX",
+										new JSONObject().put("name","dev-OSX")))
+						,Status.Launcher.minecraftDir+"launcher_profiles.json");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
 		System.out.println("Language: "+Status.SelectedLang.getString("LangName")); //設定語系
+		
+		//HashMap<String,Theme> InstalledThemes=new ThemeSelector().getInstalledTheme();
+		Status.Theme=new OakTheme();//InstalledThemes.get(config.getTheme().equals("")&&InstalledThemes.containsKey("OakTheme")?"OakTheme":config.getTheme());
+		System.out.println("Theme: "+Status.Theme.Detail.getString("name"));
 		
 		//System.out.println("VM Name: "+System.getProperty("java.vm.name"));
 		Status.MainFrameObj = new MainFrame2(); //實體化視窗
+		config.saveConfig();
 	}
 }/*
 class DownloadLauncherDisplayThread extends Thread{
@@ -330,15 +359,17 @@ class launcheThread extends Thread{ //啟動執行緒
 			}else{
 				config.DeleteData();
 			}
-			config.saveConfig(Status.MainFrameObj.JVMPathText.getText(),Status.MainFrameObj.MinecraftPathText.getText(),Status.SelectedLang.LangFile,Status.Launcher.LastVersion);
+			config.saveConfig();
 			//RFInfo.Launcher=new Launcher(RFInfo.SelectedLang);
-			if(Login.canConnect()){
-				if(Login.connect(Status.Theme.UserBox.getText(),new String(Status.Theme.PwdBox.getPassword()))){
+			
+			//TODO dev-OSX
+			if(true/*&&Login.canConnect()*/){
+				if(true/*&&Login.connect(Status.Theme.UserBox.getText(),new String(Status.Theme.PwdBox.getPassword()))*/){
 					Status.Theme.MainProgressBar.setIndeterminate(false);
 					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoginSuccess"));
 					Status.Launcher.minecraftDir=Status.MainFrameObj.MinecraftPathText.getText();
 					Status.Launcher.JVMPath=Status.MainFrameObj.JVMPathText.getText();
-					Status.Launcher.LaunchGame(Login.getUser(),Status.Launcher.getInstalledProfiles().get(Status.Theme.ProfileSelectBox.getSelectedIndex()),Login.getSession());
+					Status.Launcher.LaunchGame(/*Login.getUser()*/Status.Theme.UserBox.getText(),Status.Launcher.getInstalledProfiles().get(Status.Theme.ProfileSelectBox.getSelectedIndex()),/*Login.getSession()*/"token:0:0");
 				}else{ //登入錯誤
 					Status.Theme.LoginBtn.setEnabled(true);
 					Status.Theme.UserBox.setEnabled(true);
@@ -504,6 +535,17 @@ class Save_LoadConfig{ //設定檔操作
 			return "";
 		}
 	}
+	public String getTheme(){
+		try{
+			if(!new File(this.ConfigFile).exists()) return null;
+			JSONObject json = JSONFunction.CreateFromFile(this.ConfigFile);
+			return json.has("Theme")?json.getString("Theme"):"";
+		}catch(IOException e){
+			System.out.println("--*Load Theme form config Error*--");
+			e.printStackTrace();
+			return "";
+		}
+	}
 	/**
 	 * 儲存設定檔
 	 * @param JVMPath JVM路徑
@@ -511,7 +553,7 @@ class Save_LoadConfig{ //設定檔操作
 	 * @param SelectedLang 已選擇的語系
 	 * @param LastVersion MinecraftLastVersion
 	 */
-	public void saveConfig(String JVMPath,String MinecraftPath,String SelectedLang,String LastVersion){
+	public void saveConfig(){
 		try{
 			JSONObject json;
 			if(new File(this.ConfigFile).exists()){
@@ -519,9 +561,10 @@ class Save_LoadConfig{ //設定檔操作
 			}else{
 				json = new JSONObject();
 			}
-			json.put("JVMPath",Status.Launcher.JVMPath);//JVMPath);
-			json.put("MinecraftPath",Status.Launcher.minecraftDir);//MinecraftPath);
-			json.put("SelectedLang",SelectedLang);
+			json.put("JVMPath",Status.MainFrameObj.JVMPathText.getText());//JVMPath;
+			json.put("MinecraftPath",Status.MainFrameObj.MinecraftPathText.getText());//MinecraftPath);
+			json.put("SelectedLang",Status.SelectedLang.LangFile);
+			json.put("Theme",Status.Theme.Detail.getString("name"));
 			json.put("LastVersion",Status.Launcher.LastVersion);
 			JSONFunction.WriteToFile(json,this.ConfigFile);
 		}catch(IOException e){

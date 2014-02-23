@@ -4,11 +4,18 @@ import javax.swing.GroupLayout;
 import javax.swing.GroupLayout.Alignment;
 import javax.swing.LayoutStyle.ComponentPlacement;
 
+import org.json.JSONObject;
+
 public class OakTheme extends Theme{
 	public OakTheme(){
 		this.Author="曙";
 		this.ThemeName="Oak";
 		this.Description="RF-MCLauncher-B的預設佈景";
+		this.Detail=new JSONObject();
+		Detail.put("author","曙");
+		Detail.put("name","OakTheme");
+		Detail.put("description","RF-MCLauncher-B預設的佈景主題");
+		
 		//-----------
 		SetFrameSize(300,400);
 		SetBackground("images/OakBG.png",10,2,280,300);

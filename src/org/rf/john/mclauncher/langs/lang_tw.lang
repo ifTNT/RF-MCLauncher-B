@@ -13,6 +13,7 @@
 	"MainTabTitle": "Minecraft登入器",
 	"SittingTabTitle": "設定",
 	"LangText": "語系選擇",
+	"ThemeText": "佈景選擇",
 	"UserText": "帳號:",
 	"PwdText": "密碼:",
 	"LoginBtn": "登入",

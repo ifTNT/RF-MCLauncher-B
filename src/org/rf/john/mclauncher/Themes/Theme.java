@@ -2,6 +2,7 @@ package org.rf.john.mclauncher.Themes;
 
 import java.awt.Color;
 
+import org.json.JSONObject;
 import org.rf.john.mclauncher.LaunchPanel;
 
 
@@ -9,6 +10,7 @@ public class Theme extends LaunchPanel{
 	public String Author="";
 	public String ThemeName="";
 	public String Description="";
+	public JSONObject Detail=new JSONObject();
 	
 	/**
 	 * 設定視窗大小
