@@ -1,74 +1,63 @@
 RF-MCLauncher-B
 ===============
 
-一個非官方的開源Minecraft啟動器<br>
-使用GPLv3進行授權 請詳閱相關條款<br>
-<br>
+一個非官方的開源Minecraft啟動器api  
+使用GPLv3進行授權 請詳閱相關條款  
+  
 程式設計: 曙@RasFun
 
 ##ChangLog
-#####1.0.0---初版
+請到Master看
 
-#####1.0.1rc2
-    *修正嚴重Bug--啟動SessionID錯誤(RFBug#000)
+##How to use
+####Method
+使用範例打在`HowToUse.java`裡,在這裡我先將我們所提供的method講一下:  
+* `Launcher Launcher(Logger)` 建構式,需傳入一個實作Logger的類別  
+* `HashSet<String> getInstalledProfiles()` 取得已安裝的Profile  
+* `String selectedProfile()` 取得最後一次所選取的Profile  
+* `String getLastVersion()` 取得Minecraft的最後版本,離線時不可用(回傳null)  
+* `HashMap<String,String> Login(String user,String pw)` 取得正版的帳號資訊,傳入帳號,密碼,回傳驗證結果  
+    * `Status` 驗證結果  
+      ("Server error"=資料取得錯誤,"Bad login"=帳密錯誤,"Old version"=啟動器版本過舊,"Susses"=驗證成功)
 
-#####2.0a
-    *改變語言引擎
-    *將英文語系的Password改為P.W
-    +允許自定義語言包
-    *更改原始碼結構
-      └ *將MainFrame,SelectedLang,Launcher定義為static以減少參數傳遞
-      └ -移除空迴圈
-      └ *展開原始碼
-      └ *將mian改為Main ,以減少誤會
-      └ -廢除MainFrame,ImagePaenl和LangType
-      └ *將LangType改為使用HashMap實作
-      └ +新增RFInfo來管理全域變數
-      └ *將Launcher合併
-      └ *將根套件改為org.rf.john
-    +支援1.7
-    +支援自定義參數
-    *增加紀錄檔的可讀性
-    -移除SessionID顯示 以保護帳號隱私
-    *修正不支援中文路徑的Bug(RFBug#001)
-    *修正不支援Forge的Bug(RFBug#002)
-    *將介面改為OakTheme
-    +加入o0o
-    +可自動取得LastVersion
-    +可自動判斷適合系統的語系
-    +允許使用Apache Ant進行開發
-    *將Forge的程式庫改為.pack.xz下載 以加快速度
-    +引用tukaani的xz java-1.4程式庫
-    *改進下載的執行緒分配
-    *如果欲下載的檔案存在 則不下載
-    +支援Assets下載
-    -不再將程式庫刪除,重下載 只下載沒有的程式庫
-    *將ant的jar壓縮等級變成9
-    +將ant debug的錯誤導向到launch.err
-    *更改Windows的NativesTail
-    -清理部份無用的原始碼
-    *改用ant作為jar佈署工具(之前是用Eclipsc)
-    +下載檔案中關閉視窗時 會詢問
-    * 精簡程式碼
-    +遊戲主程式不存在時,會自動下載
-#####3.0a
-    -移除Apache Ant Zip library
-    -刪除沒有用到的程式庫檔案
-
-##參數
-- --NoDelNatives : 不要刪除Natives資料夾(除錯用)
-- --NoUpdate : 不檢查更新(暫時棄用)
-
-##未來
-- 自訂義佈景(外觀) (製作中...)
-- ModOak (模組安裝器)
-- 錯誤Log分析
-- 自動優化啟動參數
-- 可編輯Profile
-- 支援XP,Mac(OSX)
-- 可完全取代官方啟動器
-
-##Bugs
-- RFBug#000 啟動SessionID錯誤(1.0-rc2已解決)
-- RFBug#001 不支援中文路徑(2.0a已解決)
-- RFBug#002 不支援Forge(2.0a已解決)
+    `(接下來的value只有Status="Succes"時會出現)`
+    * `UserName` 玩家的顯示名稱
+    * `Session` 啟動時會用到
+    * `UUID` 沒有用
+    * `AccessToken` 沒有用
+  
+* `boolean LaunchGameOffline(String Profile,String LastVersion)`  
+離線啟動遊戲,傳入:選取的啟動檔,LastVersion,回傳:啟動成功=true,失敗=false  
+* `boolean LaunchGameOffline(String Profile,String LastVersion,HashMap<String,String> options)`  
+同上,多出來的那個參數可以定義啟動器(定義的參數請參考下方)  
+* `boolean LaunchGame(String PlayerName,String Profile,String Session,String LastVersion)`  
+正常的啟動遊戲,傳入:玩家的顯示名稱,選取的啟動檔,Session,LastVersion,回傳:啟動成功=true,失敗=false  
+* `boolean LaunchGame(String PlayerName,String Profile,String Session,String LastVersion,HashMap<String,String> options)`  
+同上,多出來的那個參數可以定義啟動器(定義的參數請參考下方)  
+  
+*******
+####Logger
+Logger是一個被我們特別設計,用來傳遞訊的一個介面,您必須實作他:  
+* `void Info(String Msg)` 一般訊息的顯示  
+* `void Warning(String Msg)` 警告訊息的顯示  
+* `void Error(String Msg)` 錯誤訊息的顯示  
+* `void Error(String Msg,Exception e)` 錯誤訊息的顯示(帶有Exception)  
+* `void DeadlyError(String Msg)` 會導致啟動器不能繼續的錯誤訊息  
+* `void FinishCallback()` 啟動結束,遊戲準備開始時所呼叫的callback  
+* `JProgressBar progressBar` 請傳入主視窗的進度條元件,如果沒有使用,請將他設成`JProgressBar progressBar=new JProgressBar()` 
+ 
+##Options
+<table>
+  <tbody>
+    <tr>
+      <td>&lt;key></td>
+      <td>&lt;value></td>
+      <td>&lt;description></td>
+    </tr>
+    <tr>
+      <td>NoDeleteNatives</td>
+      <td>true/false</td>
+      <td>啟動完成後是否刪除Natives資料夾(true=不刪除,false=刪除)</td>
+    </tr>
+  </tbody>
+</table>
