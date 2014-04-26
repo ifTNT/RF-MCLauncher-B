@@ -1,4 +1,4 @@
-package org.rf.john.mclauncher;
+package org.rf.john.mclaunch.api;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -8,6 +8,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -15,59 +18,38 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
 
-import javax.swing.JOptionPane;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.rf.john.mclauncher.langs.Languages;
-import org.rf.john.mclauncher.Status;
 
 
 public class Launcher{
-	public String minecraftDir;
-	public String JVMPath;
-	public String LastVersion="";
+	public Logger logger;
+	public static String minecraftDir;
+	public static String JVMPath;
 	public static char SplitChar;
-	protected String LibrariesBaseDownloadURL="https://libraries.minecraft.net/";
-	protected String AssetsIndexBaseDownloadURL="https://s3.amazonaws.com/Minecraft.Download/indexes/";
-	protected String AssetsBaseDownloadURL="http://resources.download.minecraft.net/";
-	public int LauncherVersion=1;
-	
-	@Override
-	public String toString(){
-		return "  ClassName: "+this.getClass().toString().substring(6)+"\n"+
-				"  Version: #"+LauncherVersion+"\n"+
-				"  RunMode: "+(Status.RunMode.equals(RunModeUtil.JAR)?"JAR":"Debug")+"\n"+
-				"  Online: "+Login.canConnect();
-	}
-	
-	public Launcher(){
+	private HashMap<String,String> LauncherOptions;
+	private static String LibrariesBaseDownloadURL="https://libraries.minecraft.net/";
+	private static String AssetsIndexBaseDownloadURL="https://s3.amazonaws.com/Minecraft.Download/indexes/";
+	private static String AssetsBaseDownloadURL="http://resources.download.minecraft.net/";
+	private static String LoginServer="https://login.minecraft.net/";
+	//public int LauncherVersion=1;
+		
+	Launcher(Logger _logger){
+		logger=_logger;
 		SplitChar=File.separatorChar;
-		if(Status.getOS().equals("linux")){
+		if(getOS().equals("linux")){
 			minecraftDir= System.getProperty("user.home")+"/.minecraft/";
 			JVMPath = System.getProperty("java.home")+"/bin/java";
 			
-		}else if(Status.getOS().equals("windows")){
+		}else if(getOS().equals("windows")){
 			minecraftDir= (((System.getenv("APPDATA")!=null)?System.getenv("APPDATA"):System.getProperty("user.home", "."))+"\\.minecraft\\");
 			JVMPath = "\""+System.getProperty("java.home")+"\\bin\\"+(new File("\""+System.getProperty("java.home")+"\\bin\\javaw.exe\"").isFile()?"javaw.exe":"java")+"\"";
-		}else if(Status.getOS().equals("osx")){
+		}else if(getOS().equals("osx")){
 			minecraftDir=System.getProperty("user.home")+"/Library/Application Support/minecraft/";
 			JVMPath=System.getProperty("java.home")+"/bin/java";
+		}else if(getOS().equals("unknow")){
+			logger.Error("Unknow os");
 		}
-	}
-	
-	/**
-	 * 初始化啟動器
-	 * @param Lang 語系
-	 */
-	@SuppressWarnings("static-access")
-	public Launcher(Languages Lang){
-		this();
-		if(Status.getOS().equals("unknow")){
-			new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Lang.getString("NotSupportSystem")+"</span></html>",Lang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-			System.exit(1);
-		}
-		
 	}
 	
 	/**
@@ -75,17 +57,16 @@ public class Launcher{
 	 * @return 啟動檔
 	 */
 	@SuppressWarnings("static-access")
-	public final ArrayList<String> getInstalledProfiles(){
-		ArrayList<String> FinallyOut = new ArrayList<String>();
+	public final HashSet<String> getInstalledProfiles(){
+		HashSet<String> FinallyOut = new HashSet<String>();
 		try {
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			JSONObject InstalledProfiles = launcher_profile.getJSONObject("profiles");
 			for(String OneProfileName:new JSONObject().getNames(InstalledProfiles)){
 				FinallyOut.add(OneProfileName);
 			}
-			//in.close();
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.Error("Get profiles error",e);
 		}
 		return FinallyOut;
 	}
@@ -99,10 +80,8 @@ public class Launcher{
 		try {
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			FinallyOut = launcher_profile.getString("selectedProfile");
-			//in.close();
 		} catch (IOException e) {
-			System.out.println("--*Get Selected Profile Error*--");
-			e.printStackTrace();
+			logger.Error("Get selected profile error",e);
 		}
 		return FinallyOut;
 	}
@@ -110,102 +89,81 @@ public class Launcher{
 	/**
 	 * 設定Minecraft Last Version
 	 */
-	public final void SetLastVersion(){
+	public final String getLastVersion(){
 		try {
 			JSONObject VersionsJson=JSONFunction.CreateFromStream(
-					DownloadThread.getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
-			this.LastVersion=(VersionsJson.getJSONObject("latest").has("release")?
-					VersionsJson.getJSONObject("latest").getString("release"):"");
+					getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
+			return (VersionsJson.getJSONObject("latest").has("release")?VersionsJson.getJSONObject("latest").getString("release"):null);
 		} catch (IOException e) {
-			this.LastVersion="";
-			System.out.println("--*Get Last Version Error!*--");
-			e.printStackTrace();
+			logger.Error("Get last version error",e);
+			return null;
 		}
-		//this.LastVersion=(RFInfo.RFMCLB_InfoJSON!=null?RFInfo.RFMCLB_InfoJSON.getString("MinecraftLastVersion"):"");
-		if(this.LastVersion.equals("")){ //從設定檔讀取
-			this.LastVersion=new Save_LoadConfig().getLastVersion();
-		}
-		if(this.LastVersion.equals("")){
-			this.LastVersion="1.7.4"; //預設值
-		}
-		/*try {
-			URL UpdateURL = new URL("http://rf_mclauncher_b.000space.com/RFMCLB_Info.json"); //從網站讀取
-			URLConnection urlc = UpdateURL.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
-			ConnectObj.connect();
-			BufferedInputStream InputStream = new BufferedInputStream(ConnectObj.getInputStream());
-			String UpdateInfo="";
-			byte[] buf=new byte[1024];
-            int len=InputStream.read(buf);
-            while(len > 0){ 
-            	UpdateInfo = UpdateInfo+new String(buf);
-                len=InputStream.read(buf);
-            }
-			InputStream.close();
-			if(!(UpdateInfo.equals("") || !JSONFunction.Search(new JSONObject(UpdateInfo),"MinecraftLastVersion"))){
-				this.LastVersion=new JSONObject(UpdateInfo).getString("MinecraftLastVersion");
+	}
+	
+	public HashMap<String,String> Login(String user,String pwd){
+		String Result="";
+		HashMap<String,String> ReturnVal=new HashMap<>();
+		try {
+			logger.Info("Checking user...");
+			InputStreamReader resules = new InputStreamReader(
+					getConnectObj(LoginServer+"?user="+user+"&password="+pwd+"&version=14").getInputStream(),"UTF-8");
+			int data = resules.read();
+			while(data != -1){
+				Result += (char) data;
+				data = resules.read();
 			}
-			if(this.LastVersion.equals("")){ //從設定檔讀取
-				this.LastVersion=new Save_LoadConfig().getLastVersion();
-			}
-			if(this.LastVersion.equals("")){
-				this.LastVersion="1.7.4"; //預設值
-			}
-			/*
-			URL UpdateURL = new URL("http://mcupdate.tumblr.com/"); //從網站讀取
-			URLConnection urlc = UpdateURL.openConnection();
-			urlc.setConnectTimeout(5000);
-			HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
-			ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
-			ConnectObj.connect();
-			BufferedInputStream InputStream = new BufferedInputStream(ConnectObj.getInputStream());
-			String UpdatePage="";
-			byte[] buf=new byte[1024];
-            int len=InputStream.read(buf);
-            while(len > 0){ 
-                UpdatePage = UpdatePage+new String(buf);
-                len=InputStream.read(buf);
-            }
-			InputStream.close();
-			Pattern Regex=Pattern.compile(".*<h3><a href=\"http://mcupdate\\.tumblr\\.com/post/[0-9]+/minecraft[-0-9]+\">minecraft[ 0-9.]+</a></h3>.*");
-			Matcher matcher=Regex.matcher(UpdatePage.toLowerCase());
-			if(matcher.find()){
-				String LastVersionHtml=matcher.group().trim();
-				Pattern VersionRegex=Pattern.compile("minecraft [0-9.]+");
-				Matcher VersionMatcher = VersionRegex.matcher(LastVersionHtml);
-				if(VersionMatcher.find()){
-					this.LastVersion=VersionMatcher.group().substring(10);
-				}
-			}
-			if(this.LastVersion.equals("")){ //從設定檔讀取
-				this.LastVersion=new Save_LoadConfig().getLastVersion();
-			}
-			if(this.LastVersion.equals("")){
-				this.LastVersion="1.7.2"; //預設值
-			}
-			*
 		} catch (IOException e) {
-			System.out.println("--*GetLastVersionError*--");
-			e.printStackTrace();
-		}*/
+			logger.Error("Check user error",e);
+			ReturnVal.put("Status","Server error");
+			return ReturnVal;
+		}
+		switch(Result){
+			case "Bad login":
+				logger.Error("Login Error: Bad login");
+				ReturnVal.put("Status","Bad login");
+			case "Old version":
+				logger.Error("Login Error: Old version");
+				ReturnVal.put("Status","Old version");
+			default:
+				logger.Info("Login success!");
+				ReturnVal.put("Status","Success");
+				String[] SplitedResult=Result.split(":");
+				ReturnVal.put("UserName",SplitedResult[2]);
+				ReturnVal.put("Session","token:"+SplitedResult[3]+":"+SplitedResult[4]);
+				ReturnVal.put("UUID",SplitedResult[4]);
+				ReturnVal.put("AccessToken",SplitedResult[3]);
+		}
+		return ReturnVal;
+	}
+	
+	public boolean LaunchGameOffline(String ProfileName,String LastVersion){
+		HashMap<String,String> DefaultOption=new HashMap<>();
+		DefaultOption.put("NoDeleteNatives","false");
+		return LaunchGameOffline(ProfileName,LastVersion,DefaultOption);
 	}
 	
 	/**
 	 * 離線啟動遊戲
 	 * @param ProfileName 啟動檔名稱
 	 */
-	public void LaunchGameOffline(String ProfileName){
+	public boolean LaunchGameOffline(String ProfileName,String LastVersion,HashMap<String,String> options){
 		try {
-			System.out.println("--Launching Offline!");
+			logger.Info("Launching Offline");
+			
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			String ProfileSession = ("token:"+launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("accessToken")+":"+launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID"));
 			String PlayerName = launcher_profile.getJSONObject("authenticationDatabase").getJSONObject(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("playerUUID")).getString("displayName");
-			this.LaunchGame(PlayerName,ProfileName, ProfileSession);
+			return this.LaunchGame(PlayerName,ProfileName, ProfileSession,LastVersion,options);
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.Error("Launch offline error",e);
+			return false;
 		}
+	}
+	
+	public boolean LaunchGame(String PlayerName,String ProfileName,String session,String LastVersion){
+		HashMap<String,String> DefaultOption=new HashMap<>();
+		DefaultOption.put("NoDeleteNatives","false");
+		return LaunchGame(PlayerName,ProfileName,session,LastVersion,DefaultOption);
 	}
 	
 	/**
@@ -215,8 +173,8 @@ public class Launcher{
 	 * @param session 玩家的Session
 	 */
 	@SuppressWarnings("static-access")
-	public void LaunchGame(String PlayerName,String ProfileName,String session){
-		//String VersionName="";
+	public boolean LaunchGame(String PlayerName,String ProfileName,String session,String LastVersion,HashMap<String,String> options){
+		this.LauncherOptions=options;
 		String GameDir="";
 		String AssetsDir=minecraftDir+"assets";
 		String MainClass="";
@@ -226,44 +184,35 @@ public class Launcher{
 		String LaunchArgs="";
 		String Version="";
 		String AssetsIndex="";
-		//boolean NeedDownload=false;
 		String LibrariesDir=minecraftDir+"libraries"+SplitChar;
-		System.out.println("\n--Launching Game...");
+		logger.Info("\n--Launching Game...");
 		LaunchCmd += this.JVMPath;
-		System.out.println("Free Memory: "+Runtime.getRuntime().totalMemory()+" Bytes");
+		logger.Info("Free Memory: "+Runtime.getRuntime().totalMemory()+" Bytes");
 		try {
 			//-------------讀取必要資訊--------------
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
-			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) && !Login.canConnect()){
-				Status.Theme.LoginBtn.setEnabled(true);
-				Status.Theme.UserBox.setEnabled(true);
-				Status.Theme.PwdBox.setEnabled(true);
-				Status.Theme.ProfileSelectBox.setEnabled(true);
-				Status.Theme.RememberMe.setEnabled(true);
-				Status.Theme.MainProgressBar.setIndeterminate(false);
-				Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("OfflineDownload"));
-				Status.Theme.MainProgressBar.setEnabled(false);
-				new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Status.SelectedLang.getString("OfflineDownload")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-				return;
+			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) &&  //if change selected profile in offline
+					!JSONFunction.CreateFromStream(getConnectObj("http://status.mojang.com/check?service=login.minecraft.net").getInputStream())
+					.getString("login.minecraft.net").equals("green")){
+				logger.DeadlyError("Offline download");
+				return false;
 			}
 			LaunchCmd += " "+(launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).has("javaArgs")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("javaArgs"):"-Xmx"+(System.getProperty("sun.arch.data.model").equals("32")?"512M":"1G"));
 			GameDir = launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).has("gameDir")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("gameDir"):minecraftDir;
-			String LastVersionID = launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).has("lastVersionId")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("lastVersionId"):this.LastVersion;
+			String LastVersionID = launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).has("lastVersionId")?launcher_profile.getJSONObject("profiles").getJSONObject(ProfileName).getString("lastVersionId"):LastVersion;
 			NativesDir = (minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+"-natives-" + System.nanoTime());
-			//NeedDownload = !launcher_profile.getString("selectedProfile").equals(ProfileName) && Login.canConnect();
 			MainJar = minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar";
 			Version=LastVersionID;
 			
-			System.out.println("GameDir="+GameDir);
-			System.out.println("PlayerDisplayName="+PlayerName);
-			System.out.println("Session=******");
-			System.out.println("BaseVersion="+Version);
+			logger.Info("GameDir="+GameDir);
+			logger.Info("PlayerDisplayName="+PlayerName);
+			logger.Info("Session=******");
+			logger.Info("BaseVersion="+Version);
 			if(!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json").isFile()||  //如果Profile or jar不存在
 					!new File(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar").isFile()){
-				//Status.Theme.MainProgressBar.setIndeterminate(true);
 				HashSet<String> Versions=new HashSet<>();
 				JSONObject VersionsJson=JSONFunction.CreateFromStream(
-						DownloadThread.getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
+						getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream());
 				for(int i=0;i<=VersionsJson.getJSONArray("versions").length()-1;i++){
 					Versions.add(VersionsJson.getJSONArray("versions").getJSONObject(i).getString("id"));
 				}
@@ -273,19 +222,10 @@ public class Launcher{
 																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json"));
 					LastVersionIdFiles.add(new DownloadUtil("http://s3.amazonaws.com/Minecraft.Download/versions/"+LastVersionID+"/"+LastVersionID+".jar",
 																minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".jar"));
-					new ThreadJob().DownloadJob("Profile and Jar",LastVersionIdFiles);
+					new ThreadJob().DownloadJob(logger,"Profile and Jar",LastVersionIdFiles);
 				}else{
-					Status.Theme.LoginBtn.setEnabled(true);
-					Status.Theme.UserBox.setEnabled(true);
-					Status.Theme.PwdBox.setEnabled(true);
-					Status.Theme.ProfileSelectBox.setEnabled(true);
-					Status.Theme.RememberMe.setEnabled(true);
-					Status.Theme.MainProgressBar.setIndeterminate(false);
-					Status.Theme.MainProgressBar.setValue(0);
-					Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("CantDownload"));
-					Status.Theme.MainProgressBar.setEnabled(false);
-					new JOptionPane().showMessageDialog(null,"<html><span style=\"color: RED;\">"+Status.SelectedLang.getString("CantDownload")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
-					return;
+					logger.DeadlyError("Can not download");
+					return false;
 				}
 			}
 			launcher_profile.put("selectedProfile",ProfileName);
@@ -293,71 +233,52 @@ public class Launcher{
 			JSONObject LaunchFile = JSONFunction.CreateFromFile(minecraftDir+"versions"+SplitChar+LastVersionID+SplitChar+LastVersionID+".json");
 			MainClass = LaunchFile.getString("mainClass");
 			LaunchArgs = LaunchFile.getString("minecraftArguments");
-			AssetsIndex=(LaunchFile.has("assets")?(Version.matches("[0-9.]+")?Version:LaunchFile.getString("assets")):"legacy");
+			AssetsIndex=(LaunchFile.has("assets")?/*(Version.matches("[0-9.]+")?Version:*/LaunchFile.getString("assets")/*)*/:"legacy");
 			JSONArray Libraries = LaunchFile.getJSONArray("libraries");
 			
 			
 			//---------------------刪除,重下載程式庫---------------
 			
-			//String NativesTail="-"+(Status.getOS().equals("linux")?"natives-linux":"natives-windows"/*-"+System.getProperty("os.arch")*/);
-		
-			Status.Theme.MainProgressBar.setIndeterminate(true);
+			logger.progressBar.setIndeterminate(true);
 			if(!new File(LibrariesDir).isDirectory()) new File(LibrariesDir).mkdir();
-			Status.Theme.MainProgressBar.setIndeterminate(false);
-			System.out.println("Downloading libraries");
-			Status.Theme.MainProgressBar.setMaximum(Libraries.length());
-			Status.Theme.MainProgressBar.setValue(0);
+			logger.progressBar.setIndeterminate(false);
+			logger.Info("Downloading libraries");
+			logger.progressBar.setMaximum(Libraries.length());
+			logger.progressBar.setValue(0);
 			ArrayList<DownloadUtil> DownloadJobs=new ArrayList<>();
 			for(int i=0;i<Libraries.length();i++){
 				String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
-				//LibrariesPath=LibrariesPath.replace(":",".");
-				//LibrariesPath=LibrariesPath.substring(0,LibrariesPath.lastIndexOf(".")-1).replace(".",SplitChar);
 				String[] SplitedPath = LibrariesPath.split(":");
 				LibrariesPath = SplitedPath[0].replace('.', SplitChar);
 				for(int j=1;j<SplitedPath.length;j++){
 					LibrariesPath += (SplitChar+SplitedPath[j]);
 				}
-				//String[] SplitedPath = LibrariesPath.split(SplitChar);
 				String FileURL="";
-				//String downloadURL="";
-				//NativesTail="-"+Status.getOS()
-				String NativesTail=(Libraries.getJSONObject(i).has("natives")&&Libraries.getJSONObject(i).getJSONObject("natives").has(Status.getOS())?
-											"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(Status.getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
+				String NativesTail=(Libraries.getJSONObject(i).has("natives")&&Libraries.getJSONObject(i).getJSONObject("natives").has(getOS())?
+											"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
 				FileURL = (LibrariesPath+SplitChar+SplitedPath[SplitedPath.length-2]+"-"+SplitedPath[SplitedPath.length-1]+NativesTail+".jar");
-				/*FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
-							Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))<=9111953?"-universal":""); //For Forge
-				FileURL += "-"+SplitedPath[SplitedPath.length-1];
-				FileURL += NativesTail;
-				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
-						Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))>9111953?"-universal":""); //For Forge
-				FileURL += (SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&
-							Integer.valueOf(SplitedPath[SplitedPath.length-1].replace(".",""))<=890751)?".zip":".jar"; //For Forge*/
-				//FileURL += (JSONFunction.Search(Libraries.getJSONObject(i),"clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
-				
 				if(!SplitedPath[SplitedPath.length-2].matches("[a-zA-z]*forge.*")&&CheckLibPermission(Libraries.getJSONObject(i))){
-					System.out.println("-- "+FileURL/*.replace("-universal","")*/);
+					logger.Info("-- "+FileURL/*.replace("-universal","")*/);
 					DownloadUtil OneLibrary = new DownloadUtil();
-					//OneLibrary.DownloadServer=JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL;
 					OneLibrary.DownloadPath=((Libraries.getJSONObject(i).has("url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL)+FileURL).replace(SplitChar,'/')+(Libraries.getJSONObject(i).has("clientreq")&&Libraries.getJSONObject(i).getBoolean("clientreq")?".pack.xz":"");
 					OneLibrary.FilePath=this.minecraftDir+"libraries"+SplitChar+FileURL/*.replace("-universal","")*/;
 					DownloadJobs.add(OneLibrary);
-					//DownloadJobs.put(FileURL,JSONFunction.Search(Libraries.getJSONObject(i),"url")?Libraries.getJSONObject(i).getString("url"):this.LibrariesBaseDownloadURL);
 				}else{
-					System.out.println("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
+					logger.Info("Skip download: "+LibrariesDir+FileURL.replace("-universal",""));
 				}
 			}
-			new ThreadJob().DownloadJob("Libraries",DownloadJobs);
+			new ThreadJob().DownloadJob(logger,"Libraries",DownloadJobs);
 			
 			//------------------下載assets-------------------
 			
-			System.out.print("\n");
-			Status.Theme.MainProgressBar.setIndeterminate(false);
-			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
+			logger.Info("\n");
+			logger.progressBar.setIndeterminate(false);
+			logger.progressBar.setString("LoadingAssets");
 			
-			new ThreadJob().DownloadJob("AssetsIndex",new DownloadUtil(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
-			Status.Theme.MainProgressBar.setValue(0);
-			Status.Theme.MainProgressBar.setIndeterminate(true);
-			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingAssets"));
+			new ThreadJob().DownloadJob(logger,"AssetsIndex",new DownloadUtil(AssetsIndexBaseDownloadURL+AssetsIndex+".json",AssetsDir+SplitChar+"indexes"+SplitChar+AssetsIndex+".json"));
+			logger.progressBar.setValue(0);
+			logger.progressBar.setIndeterminate(true);
+			logger.progressBar.setString("LoadingAssets");
 			JSONObject AssetsIndexJSON = JSONFunction.CreateFromFile(this.minecraftDir+SplitChar+"assets"+SplitChar+"indexes"+SplitChar+AssetsIndex+".json");
 			boolean Virtual = AssetsIndexJSON.has("virtual")&&AssetsIndexJSON.getBoolean("virtual");
 			HashMap<DownloadUtil,Integer> DownloadAssets = new HashMap<>();
@@ -402,7 +323,7 @@ public class Launcher{
 						(Virtual?OneAssetName.replace('/',SplitChar):Hash.substring(0,2)+SplitChar+Hash);
 				DownloadAssets.put(OneDownloadAsset,AssetsIndexJSON.getJSONObject("objects").getJSONObject(OneAssetName).getInt("size"));
 			}
-			Status.Theme.MainProgressBar.setIndeterminate(false);
+			logger.progressBar.setIndeterminate(false);
 			
 			//----------按檔案大小排序檔案-------------
 			ArrayList<Entry<DownloadUtil, Integer>> Sorter = new ArrayList<>(DownloadAssets.entrySet());
@@ -419,8 +340,8 @@ public class Launcher{
 			}
 			//-------------END 排序-----------------
 			
-			new ThreadJob().DownloadJob("Assets",20,SortedAssets);
-			Status.Theme.MainProgressBar.setIndeterminate(true);
+			new ThreadJob().DownloadJob(logger,"Assets",20,SortedAssets);
+			logger.progressBar.setIndeterminate(true);
 			AssetsDir+=(Virtual?SplitChar+"virtual"+SplitChar+AssetsIndex+SplitChar:"");
 			
 			/*if(Virtual){
@@ -445,23 +366,23 @@ public class Launcher{
 				//deleteDir(new File(AssetsDir+SplitChar+"virtual"+SplitChar+"temp"+SplitChar));
 				AssetsDir+=SplitChar+"virtual"+SplitChar+AssetsIndex;
 			}*/
-			Status.Theme.MainProgressBar.setIndeterminate(false);
+			logger.progressBar.setIndeterminate(false);
 			//------------------解壓,載入程式庫----------------
 			File ExtractDir = new File(NativesDir+SplitChar);
-			Status.Theme.MainProgressBar.setValue(0);
-			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LoadingLib"));
-			Status.Theme.MainProgressBar.setIndeterminate(true);
+			logger.progressBar.setValue(0);
+			logger.progressBar.setString("LoadingLib");
+			logger.progressBar.setIndeterminate(true);
 			if(!ExtractDir.exists() || !ExtractDir.isDirectory()){
-				new File(NativesDir+SplitChar+(Status.getOS().equals("windows")?"\\":"")).mkdirs();
-				System.out.println("-Natives dir was created!");
+				new File(NativesDir+SplitChar+(getOS().equals("windows")?"\\":"")).mkdirs();
+				logger.Info("-Natives dir was created!");
 			}
 			LaunchCmd += " -Djava.library.path="+ProgressDirSpace(NativesDir);
 			LaunchCmd += " -cp ";
 			ArrayList<String> extractFiles = new ArrayList<String>();
 			ArrayList<String> extractTargetDir = new ArrayList<String>();
 			ArrayList<ArrayList<String>> extractExclude = new ArrayList<ArrayList<String>>();
-			Status.Theme.MainProgressBar.setMaximum(Libraries.length());
-			System.out.println("\n----------");
+			logger.progressBar.setMaximum(Libraries.length());
+			logger.Info("\n----------");
 			for(int i=0;i<Libraries.length();i++){
 				if(CheckLibPermission(Libraries.getJSONObject(i))){
 					String LibrariesPath = (Libraries.getJSONObject(i).getString("name"));
@@ -470,14 +391,10 @@ public class Launcher{
 					for(int j=1;j<temp.length;j++){
 						LibrariesPath += (SplitChar+temp[j]);
 					}
-					//String[] SortedArray = new JSONObject().getNames(Libraries.getJSONObject(i));
-					//Arrays.sort(SortedArray);
-					String NativesTail=(Libraries.getJSONObject(i).has("natives")&&Libraries.getJSONObject(i).getJSONObject("natives").has(Status.getOS())?
-												"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(Status.getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
+					String NativesTail=(Libraries.getJSONObject(i).has("natives")&&Libraries.getJSONObject(i).getJSONObject("natives").has(getOS())?
+												"-"+Libraries.getJSONObject(i).getJSONObject("natives").getString(getOS()).replace("${arch}",System.getProperty("sun.arch.data.model")):"");
 					if(Libraries.getJSONObject(i).has("extract")){
-						//String[] FileList = (new File(minecraftDir+"libraries"+SplitChar+LibrariesPath).list());
-						//System.out.println(FileList[0]);
-						System.out.println("This library will be extracted: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
+						logger.Info("This library will be extracted: "+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
 						extractFiles.add(LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail+".jar");
 						extractTargetDir.add(NativesDir+SplitChar);
 						ArrayList<String> excludeTemp=new ArrayList<String>();
@@ -486,24 +403,20 @@ public class Launcher{
 						}
 						extractExclude.add(excludeTemp);
 					}else{
-						System.out.println("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
+						logger.Info("Loading library: "+LibrariesPath+SplitChar+(temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail);
 						String OneLibraryPath=LibrariesDir+(LibrariesPath+SplitChar+temp[temp.length-2]+"-"+temp[temp.length-1])+NativesTail+".jar";
 						LaunchCmd += ProgressDirSpace(OneLibraryPath)+System.getProperty("path.separator");
 					}
 				}
 			}
-			System.out.println("----------");
-			new ThreadJob().ExtractJob("Libraries",extractFiles,extractTargetDir,extractExclude);
+			logger.Info("----------");
+			new ThreadJob().ExtractJob(logger,"Libraries",extractFiles,extractTargetDir,extractExclude);
 			LaunchCmd += ProgressDirSpace(MainJar)+" "+MainClass;
-		/*} catch (IOException e) {
-			System.out.println("Launch Error!");
-			e.printStackTrace();
-		}*/
-		
-			Status.Theme.MainProgressBar.setString(Status.SelectedLang.getString("LaunchingGame"));
-			Status.Theme.MainProgressBar.setIndeterminate(false);
-			Status.Theme.MainProgressBar.setValue(0);
-			Status.Theme.MainProgressBar.setEnabled(false);
+			
+			logger.progressBar.setString("LaunchingGame");
+			logger.progressBar.setIndeterminate(false);
+			logger.progressBar.setValue(0);
+			logger.progressBar.setEnabled(false);
 			GameDir=ProgressDirSpace(GameDir);
 			AssetsDir=ProgressDirSpace(AssetsDir);
 			LaunchArgs=LaunchArgs.replace("${auth_player_name}",PlayerName);
@@ -520,7 +433,7 @@ public class Launcher{
 			LaunchCmd += " "+LaunchArgs;
 			LaunchCmd=LaunchCmd.replace("\\","\\\\");
 
-			System.out.println("\nRunning Command: "+LaunchCmd);
+			logger.Info("\nRunning Command: "+LaunchCmd);
 			final Process LaunchProcess = Runtime.getRuntime().exec(LaunchCmd);
 			final BufferedReader StdOut = new BufferedReader(new InputStreamReader(LaunchProcess.getInputStream(),"UTF-8"));
 			final BufferedReader ErrOut = new BufferedReader(new InputStreamReader(LaunchProcess.getErrorStream(),"UTF-8"));
@@ -529,12 +442,11 @@ public class Launcher{
 					try {
 			            String line="";
 			            while((line = StdOut.readLine()) != null){
-			            	System.out.println("【Minecraft Console】> "+line);
+			            	logger.Info("【Minecraft Console】> "+line);
 			            }
 			            StdOut.close();
 					} catch (IOException e) {
-						System.out.println("--*Launch Error*--");
-						e.printStackTrace();
+						logger.Error("Launch Error",e);
 					}
 				}
 			}.start();
@@ -543,68 +455,41 @@ public class Launcher{
 					try {
 			            String line="";
 			            while((line = ErrOut.readLine()) != null){
-			            	System.out.println("【Minecraft Error】> "+line);
+			            	logger.Info("【Minecraft Error】> "+line);
 			            }
 			            ErrOut.close();
 					} catch (IOException e) {
-						System.out.println("--*Launch Error*--");
-						e.printStackTrace();
+						logger.Error("Launch Error",e);
 					}
 				}
 			}.start();
-			System.out.println("--Launch Finished!");
-			TimeCounter.stop();
-			TimeCounter.count();
-			Status.MainFrameObj.setVisible(false);
-			System.out.println("\nGame is Running");
+			logger.Info("--Launch Finished!");
+			logger.FinishCallback();
+			logger.Info("\nGame is Running");
 			
             int exitVal = LaunchProcess.waitFor();
-            System.out.println("Launch over with return value:"+exitVal);
-            if(!Status.TestArguments("--NoDelNatives")){
+            logger.Info("Launch over with return value:"+exitVal);
+            if(!(LauncherOptions.containsKey("NoDeleteNatives")&&LauncherOptions.get("NoDeleteNatives").equalsIgnoreCase("true"))){
             	deleteDir(new File(NativesDir+SplitChar));
-            	System.out.println("Deleted Natives Dir!");
+            	logger.Info("Deleted Natives Dir!");
             }
             if(exitVal!=0){
-            	Status.MainFrameObj.setVisible(true);
-            	new JOptionPane().showMessageDialog(null,"<html><span style=\"color: red;\">"+Status.SelectedLang.getString("GameError")+"</span></html>",Status.SelectedLang.getString("Error"),JOptionPane.ERROR_MESSAGE);
+            	logger.DeadlyError("Minecraft returnd wrong status");
+            	return false;
             }
-            Status.MainFrameObj.dispose(); //結束程式
-            Thread.sleep(1000);
-            System.exit(0);
+            return true;
 		} catch (IOException e) {
-			System.out.println("--*Launch Error*--");
-			e.printStackTrace();
+			logger.Error("Launch Error",e);
 		}catch (InterruptedException e) {
-			System.out.println("--*Get Return Value Error!*--");
-			e.printStackTrace();
+			logger.Error("Get Return Value Error",e);
 		}
+		return false;
 	}
 	private static String ProgressDirSpace(String in){
 		return in.indexOf(' ')>0?"\""+in+"\"":in;
 	}
 	
-	/*
-	 * 製作資料夾
-	 * @param dir 欲製作的資料夾
-	 * @param splitChar 路徑分隔符號
-	 * @return 是否成功
-	 *
-	public synchronized final boolean makeDir(String dir){
-		String splitChar=SplitChar;
-		String[] Dirs = dir.split(splitChar.equals("\\")?"\\\\":splitChar);
-		String temp="";
-		//System.out.println("Creating Dir: "+dir);
-		for(String OneDir:Dirs){
-			temp += OneDir+SplitChar;
-			if(!new File(temp).isDirectory())
-				if(!new File(temp).mkdir()){
-					System.out.println("Creating Dir Error: "+temp);
-					return false;
-				}
-		}
-		return true;
-	}*/
-	
+		
 	/**
 	 * 刪除資料夾
 	 * @param dir 欲刪除的資料夾
@@ -634,9 +519,9 @@ public class Launcher{
 				JSONObject Action=Rules.getJSONObject(i);
 				if(Action.getString("action").equals("allow")){ //allow
 					if(Action.has("os")){
-						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
+						if(Action.getJSONObject("os").getString("name").equals(getOS())){
 							FinalAction=true;
-							if(Action.getJSONObject("os").has("version")&&Status.getOS().equals("osx")&&
+							if(Action.getJSONObject("os").has("version")&&getOS().equals("osx")&&
 									!System.getProperty("os.version").matches(Action.getJSONObject("os").getString("version"))){
 								FinalAction=false;
 							}	
@@ -646,9 +531,9 @@ public class Launcher{
 					}
 				}else{ //disallow
 					if(Action.has("os")){
-						if(Action.getJSONObject("os").getString("name").equals(Status.getOS())){
+						if(Action.getJSONObject("os").getString("name").equals(getOS())){
 							FinalAction=false;
-							if(Action.getJSONObject("os").has("version")&&Status.getOS().equals("osx")&&
+							if(Action.getJSONObject("os").has("version")&&getOS().equals("osx")&&
 									!System.getProperty("os.version").matches(Action.getJSONObject("os").getString("version"))){
 								FinalAction=true;
 							}
@@ -662,54 +547,25 @@ public class Launcher{
 			FinalAction=true;
 		}
 		return FinalAction;
-		/*
-		if(JSONFunction.Search(in,"rules")){
-			JSONArray Rules=in.getJSONArray("rules");
-			if(Rules.length()==1){
-				if(JSONFunction.getItem(Rules,0).getString("action").equals("allow")){ //allow
-					if(JSONFunction.Search(JSONFunction.getItem(Rules,0),"os")){
-						if(JSONFunction.getItem(Rules,0).getJSONObject("os").getString("name").equals(System.getProperty("os.name"))){
-							return true; //allow:true;
-						}else{
-							return false;
-						}
-					}else{ //allow only
-						return true;
-					}
-				}else{ //disallow
-					if(JSONFunction.Search(JSONFunction.getItem(Rules,0),"os")){
-						if(JSONFunction.getItem(Rules,0).getJSONObject("os").getString("name").equals(System.getProperty("os.name"))){
-							return false; //disallow:true
-						}else{
-							return true;
-						}
-					}else{ //disallow only
-						return false;
-					}
-				}
-			}else if(in.getJSONArray("rules").length()==2){
-				JSONObject AllowObj=null;
-				JSONObject DisallowObj=null;
-				if(JSONFunction.getItem(Rules,0).getString("action").equals("allow")&&JSONFunction.getItem(Rules,1).getString("action").equals("disallow")){ //allow disallow
-					AllowObj = JSONFunction.getItem(Rules,0);
-					DisallowObj = JSONFunction.getItem(Rules,1);
-				}else
-				if(JSONFunction.getItem(Rules,1).getString("action").equals("allow")&&JSONFunction.getItem(Rules,0).getString("action").equals("disallow")){ //disallow allow
-					AllowObj = JSONFunction.getItem(Rules,1);
-					DisallowObj = JSONFunction.getItem(Rules,0);
-				}
-				if((!JSONFunction.Search(AllowObj,"os"))&&(!JSONFunction.Search(DisallowObj,"os"))){
-					return true; //allow:null disallow:null
-				}
-				if((!JSONFunction.Search(AllowObj,"os"))&&(DisallowObj.getJSONObject("os").getString("name").equals(System.getProperty("os.name")))){
-					return false; //allow:null disallow:true
-				}
-				if((!JSONFunction.Search(DisallowObj,"os"))&&(AllowObj.getJSONObject("os").getString("name").equals(System.getProperty("os.name")))){
-					return true; //allow:true disallow:null
-				}
-			}
+	}
+	public static HttpURLConnection getConnectObj(String targetURL) throws IOException{
+		URL targetUrlObj=new URL(targetURL);
+		URLConnection urlc = targetUrlObj.openConnection();
+		urlc.setConnectTimeout(5000);
+		HttpURLConnection ConnectObj = (HttpURLConnection) urlc;
+		ConnectObj.addRequestProperty("User-Agent", "Mozilla/5.0");
+		ConnectObj.connect();
+		return ConnectObj;
+	}
+	public static String getOS(){
+		if(System.getProperty("os.name").toLowerCase().indexOf("win")>=0){
+			return "windows";
+		}else if(System.getProperty("os.name").toLowerCase().indexOf("nix")>=0 || System.getProperty("os.name").toLowerCase().indexOf("nux")>=0){
+			return "linux";
+		}else if(System.getProperty("os.name").toLowerCase().indexOf("mac")>=0||System.getProperty("os.name").toLowerCase().replace(" ","").indexOf("osx")>=0){
+			return "osx";
+		}else{
+			return "unknow";
 		}
-		return true; //default(no rules)
-		*/
 	}
 }

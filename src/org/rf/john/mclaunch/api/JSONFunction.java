@@ -1,4 +1,4 @@
-package org.rf.john.mclauncher;
+package org.rf.john.mclaunch.api;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -9,8 +9,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URLDecoder;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
