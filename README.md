@@ -9,6 +9,12 @@ RF-MCLauncher-B
 ##ChangLog
 請到Master看
 
+##Buliding
+#####請先安裝Apache ant
+* 編譯 `ant build`
+* 包成jar檔 `ant jar`
+* 看範例 `ant demo`
+
 ##How to use
 ####Method
 使用範例打在`HowToUse.java`裡,在這裡我先將我們所提供的method講一下:  
