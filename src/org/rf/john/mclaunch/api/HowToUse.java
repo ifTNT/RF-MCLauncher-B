@@ -76,6 +76,10 @@ class CustomLogger implements Logger{ //自訂的訊息紀錄器,必須在Launch
 		System.out.println("Got it!");
 	}
 	
+	@Override
+	public void TheEndCallback() { //啟動完成,遊戲準備啟動時所呼叫的callback(可以再這裡將主視窗隱藏)
+		System.out.println("Game Finished");
+	}
 }
 class CustomProgressBar extends JProgressBar{ //自定義進度條
 	@Override

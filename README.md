@@ -51,6 +51,7 @@ Logger是一個被我們特別設計,用來傳遞訊的一個介面,您必須實
 * `void Error(String Msg,Exception e)` 錯誤訊息的顯示(帶有Exception)  
 * `void DeadlyError(String Msg)` 會導致啟動器不能繼續的錯誤訊息  
 * `void FinishCallback()` 啟動結束,遊戲準備開始時所呼叫的callback  
+* `void TheEndCallback()` 遊戲結束時所呼叫的callback  
 * `JProgressBar progressBar` 請傳入主視窗的進度條元件,如果沒有使用,請將他設成`JProgressBar progressBar=new JProgressBar()` 
  
 ##Options

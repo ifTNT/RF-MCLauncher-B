@@ -487,6 +487,7 @@ public class Launcher{
             	logger.DeadlyError("Minecraft returnd wrong status");
             	return false;
             }
+            logger.TheEndCallback();
             return true;
 		} catch (IOException e) {
 			logger.Error("Launch Error",e);

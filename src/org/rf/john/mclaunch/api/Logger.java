@@ -10,4 +10,5 @@ public interface Logger {
 	void Error(String Msg,Exception e);
 	void DeadlyError(String Msg);
 	void FinishCallback();  //啟動完成時呼叫的callback
+	void TheEndCallback();
 }
