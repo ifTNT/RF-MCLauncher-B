@@ -33,7 +33,7 @@ public class Launcher{
 	private static String LoginServer="https://login.minecraft.net/";
 	//public int LauncherVersion=1;
 		
-	Launcher(Logger _logger){
+	public Launcher(Logger _logger){
 		logger=_logger;
 		SplitChar=File.separatorChar;
 		if(getOS().equals("linux")){
