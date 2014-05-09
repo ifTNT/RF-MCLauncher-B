@@ -21,7 +21,6 @@ import java.util.Map.Entry;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-
 public class Launcher{
 	public Logger logger;
 	public static String minecraftDir;
@@ -97,6 +96,17 @@ public class Launcher{
 		} catch (IOException e) {
 			logger.Error("Get last version error",e);
 			return null;
+		}
+	}
+	
+	public boolean checkLoginServer(){
+		try {
+			return 	JSONFunction.CreateFromStream(
+							DownloadThread.getConnectObj("http://status.mojang.com/check?service=login.minecraft.net").getInputStream())
+							.getString("login.minecraft.net").equals("green");
+		} catch (IOException e) {
+			logger.Error("Connect to Internet Error",e);
+			return false;
 		}
 	}
 	

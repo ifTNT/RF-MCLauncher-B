@@ -22,6 +22,7 @@ RF-MCLauncher-B
 * `HashSet<String> getInstalledProfiles()` 取得已安裝的Profile  
 * `String selectedProfile()` 取得最後一次所選取的Profile  
 * `String getLastVersion()` 取得Minecraft的最後版本,離線時不可用(回傳null)  
+* `boolean checkLoginServer()` 檢查登入伺服器是否上線  
 * `HashMap<String,String> Login(String user,String pw)` 取得正版的帳號資訊,傳入帳號,密碼,回傳驗證結果  
     * `Status` 驗證結果  
       ("Server error"=資料取得錯誤,"Bad login"=帳密錯誤,"Old version"=啟動器版本過舊,"Susses"=驗證成功)
