@@ -202,8 +202,7 @@ public class Launcher{
 			//-------------讀取必要資訊--------------
 			JSONObject launcher_profile = JSONFunction.CreateFromFile(minecraftDir+"launcher_profiles.json");
 			if(!launcher_profile.getString("selectedProfile").equals(ProfileName) &&  //if change selected profile in offline
-					!JSONFunction.CreateFromStream(getConnectObj("http://status.mojang.com/check?service=login.minecraft.net").getInputStream())
-					.getString("login.minecraft.net").equals("green")){
+					JSONFunction.CreateFromStream(getConnectObj("https://s3.amazonaws.com/Minecraft.Download/versions/versions.json").getInputStream())==null){
 				logger.DeadlyError("Offline download");
 				return false;
 			}
